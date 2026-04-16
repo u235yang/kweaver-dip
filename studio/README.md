@@ -459,6 +459,168 @@ DIP 数字员工 Web 界面
 
 返回值为创建或更新后的数字员工数组，元素结构与 `POST /api/dip-studio/v1/digital-human` 响应一致。
 
+#### 获取通道用户列表
+
+`GET /api/dip-studio/v1/channel-users`
+
+查询参数：
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| type | `"feishu" \| "dingding"` | 可选；按通道类型过滤 |
+| displayName | string | 可选；按显示名做不区分大小写的部分匹配过滤 |
+| digitalHumanId | string | 可选；按指定数字员工的投递范围过滤 |
+| start | integer | 可选；分页起始偏移，最小值 `0` |
+| limit | integer | 可选；分页大小，最小值 `1` |
+
+响应：`200 application/json`
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| items | ChannelUserListItem[] | 当前页通道用户列表 |
+| total | integer | 过滤后的总记录数 |
+| start | integer | 当前分页起始偏移 |
+| limit | integer | 当前分页大小 |
+
+`ChannelUserListItem` 结构：
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| displayName | string | 通道用户显示名 |
+| channel | ChannelUserChannel | 通道信息 |
+
+`ChannelUserChannel` 结构：
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| type | `"feishu" \| "dingding"` | 通道类型 |
+| openid | string | 通道用户 OpenID |
+
+#### 创建通道用户
+
+`POST /api/dip-studio/v1/channel-users`
+
+请求体：`application/json`
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| displayName | string | 是 | 通道用户显示名 |
+| channel | ChannelUserChannel | 是 | 通道信息 |
+
+响应：`201 application/json`
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| id | string | 通道用户 ID |
+| displayName | string | 通道用户显示名 |
+| channel | ChannelUserChannel | 通道信息 |
+
+#### 更新通道用户
+
+`PUT /api/dip-studio/v1/channel-users/{id}`
+
+路径参数：
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| id | string | 是 | 通道用户 ID |
+
+请求体：`application/json`
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| displayName | string | 是 | 通道用户显示名 |
+| channel | ChannelUserChannel | 是 | 通道信息 |
+
+响应：`200 application/json`
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| id | string | 通道用户 ID |
+| displayName | string | 通道用户显示名 |
+| channel | ChannelUserChannel | 通道信息 |
+
+#### 删除通道用户
+
+`DELETE /api/dip-studio/v1/channel-users/{id}`
+
+路径参数：
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| id | string | 是 | 通道用户 ID |
+
+响应：`204`
+
+#### 导出通道用户 JSONL
+
+`GET /api/dip-studio/v1/channel-users/export`
+
+响应：`200 application/x-ndjson`
+
+返回通道用户 JSONL 文件流。
+
+#### 导入通道用户 JSONL
+
+`POST /api/dip-studio/v1/channel-users/import`
+
+请求体：`multipart/form-data`
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| file | binary | 是 | 上传的 JSONL 文件 |
+
+响应：`200 application/json`
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| count | integer | 成功导入的通道用户数量 |
+
+#### 获取指定数字员工可 @ 的通道用户列表
+
+`GET /api/dip-studio/v1/digital-human/{id}/channel-users`
+
+路径参数：
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| id | string | 是 | 数字员工 ID |
+
+查询参数：
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| type | `"feishu" \| "dingding"` | 可选；按通道类型过滤 |
+| displayName | string | 可选；按显示名做不区分大小写的部分匹配过滤 |
+
+响应：`200 application/json`
+
+返回结构同 `GET /api/dip-studio/v1/channel-users`。
+
+#### 更新数字员工消息投递范围
+
+`PUT /api/dip-studio/v1/digital-human/{id}/channel-users`
+
+路径参数：
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| id | string | 是 | 数字员工 ID |
+
+请求体：`application/json`
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| -- | -- | -- | -- |
+| allowFrom | string[] | 是 | 通道用户 OpenID 列表 |
+
+响应：`200 application/json`
+
+| 参数 | 类型 | 说明 |
+| -- | -- | -- |
+| digitalHumanId | string | 数字员工 ID |
+| channelType | `"feishu" \| "dingding"` | 数字员工绑定的通道类型 |
+| allowFrom | string[] | 实际写入 OpenClaw `allowFrom` 的 OpenID 列表 |
+
 #### 获取全局启用技能列表
 
 `GET /api/dip-studio/v1/skills`

@@ -44,6 +44,21 @@ const chatSessionsLogic = new DefaultSessionsLogic(
 );
 
 /**
+ * Maximum length accepted by OpenClaw for session labels.
+ */
+const OPENCLAW_SESSION_LABEL_MAX_LENGTH = 64;
+
+/**
+ * Separator inserted between label prefix and random suffix.
+ */
+const SESSION_LABEL_SUFFIX_SEPARATOR = "_";
+
+/**
+ * Number of suffix characters appended to first-turn session labels.
+ */
+const SESSION_LABEL_SUFFIX_LENGTH = 8;
+
+/**
  * Supported query fields for chat messages endpoint.
  */
 export interface ChatMessagesQuery {
@@ -564,7 +579,7 @@ export async function isFirstChatTurn(
 /**
  * Builds the first-turn session label expected by the OpenClaw chat design.
  *
- * Format: `<user message>_<8-char random suffix>`.
+ * Format: `<truncated first sentence>_<8-char random suffix>`.
  *
  * @param message The raw user message.
  * @param suffixSource Optional source string used to derive the suffix in tests.
@@ -576,8 +591,63 @@ export function buildFirstTurnSessionLabel(
 ): string {
   const normalizedMessage = message.replace(/\s+/g, " ").trim();
   const suffix = suffixSource.replace(/[^0-9a-zA-Z]/g, "").slice(0, 8);
+  const prefix = buildSessionLabelPrefix(normalizedMessage);
 
-  return `${normalizedMessage}_${suffix}`;
+  return `${prefix}${SESSION_LABEL_SUFFIX_SEPARATOR}${suffix}`;
+}
+
+/**
+ * Builds the message-derived prefix portion of the first-turn session label.
+ *
+ * The prefix prefers complete sentences and falls back to truncating the first
+ * sentence when no full sentence fits within the OpenClaw label length limit.
+ *
+ * @param message The normalized user message.
+ * @returns A prefix guaranteed to fit within the remaining label budget.
+ */
+export function buildSessionLabelPrefix(message: string): string {
+  const maxPrefixLength =
+    OPENCLAW_SESSION_LABEL_MAX_LENGTH -
+    SESSION_LABEL_SUFFIX_SEPARATOR.length -
+    SESSION_LABEL_SUFFIX_LENGTH;
+
+  if (message.length <= maxPrefixLength) {
+    return message;
+  }
+
+  const sentences = splitMessageIntoSentences(message);
+  let prefix = "";
+
+  for (const sentence of sentences) {
+    if (sentence.length > maxPrefixLength) {
+      break;
+    }
+
+    if ((prefix + sentence).length > maxPrefixLength) {
+      break;
+    }
+
+    prefix += sentence;
+  }
+
+  if (prefix !== "") {
+    return prefix;
+  }
+
+  return message.slice(0, maxPrefixLength).trim();
+}
+
+/**
+ * Splits one normalized message into sentence-like chunks while preserving
+ * sentence-ending punctuation on each chunk.
+ *
+ * @param message The normalized user message.
+ * @returns Ordered sentence fragments.
+ */
+export function splitMessageIntoSentences(message: string): string[] {
+  const sentences = message.match(/.*?(?:[。！？!?]+|\.{1,3}|…+|$)/gu) ?? [];
+
+  return sentences.map((sentence) => sentence.trim()).filter((sentence) => sentence !== "");
 }
 
 /**

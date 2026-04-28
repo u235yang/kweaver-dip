@@ -256,7 +256,7 @@ describe("DefaultChannelUserLogic", () => {
     expect(result.limit).toBe(200);
   });
 
-  it("scopes list results by digital human allowFrom", async () => {
+  it("lists digital-human channel users by allowFrom", async () => {
     writeFileSync(
       resolveChannelUsersFilePath(),
       [
@@ -294,7 +294,7 @@ describe("DefaultChannelUserLogic", () => {
     const logic = new DefaultChannelUserLogic({
       openClawAgentsAdapter: createAdapterMock() as never
     });
-    const result = await logic.listChannelUsers({ digitalHumanId: "agent-1" });
+    const result = await logic.listDigitalHumanChannelUsers("agent-1", {});
 
     expect(result.items).toEqual([
       {
@@ -342,7 +342,7 @@ describe("DefaultChannelUserLogic", () => {
     const logic = new DefaultChannelUserLogic({
       openClawAgentsAdapter: createAdapterMock() as never
     });
-    const result = await logic.listChannelUsers({ digitalHumanId: "agent-1" });
+    const result = await logic.listDigitalHumanChannelUsers("agent-1", {});
 
     expect(result.total).toBe(2);
     expect(result.items.every((item) => item.channel.type === "feishu")).toBe(true);
@@ -353,7 +353,7 @@ describe("DefaultChannelUserLogic", () => {
       openClawAgentsAdapter: createAdapterMock() as never
     });
 
-    await expect(logic.listChannelUsers({ digitalHumanId: "missing" })).rejects.toMatchObject({
+    await expect(logic.listDigitalHumanChannelUsers("missing", {})).rejects.toMatchObject({
       statusCode: 404
     });
   });
@@ -375,7 +375,7 @@ describe("DefaultChannelUserLogic", () => {
       openClawAgentsAdapter: createAdapterMock() as never
     });
 
-    await expect(logic.listChannelUsers({ digitalHumanId: "agent-1" })).rejects.toMatchObject({
+    await expect(logic.listDigitalHumanChannelUsers("agent-1", {})).rejects.toMatchObject({
       statusCode: 404
     });
   });
@@ -405,7 +405,7 @@ describe("DefaultChannelUserLogic", () => {
       openClawAgentsAdapter: createAdapterMock() as never
     });
 
-    await expect(logic.listChannelUsers({ digitalHumanId: "agent-1" })).rejects.toMatchObject({
+    await expect(logic.listDigitalHumanChannelUsers("agent-1", {})).rejects.toMatchObject({
       statusCode: 404
     });
   });

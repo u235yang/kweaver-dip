@@ -36,28 +36,16 @@ export interface ChannelUserLogic {
   listChannelUsers(query: ChannelUserListQuery): Promise<ChannelUserListResponse>;
 
   /**
-   * Creates one channel user record.
+   * Reads the channel users available to one digital human.
    *
-   * @param input The validated creation payload.
-   * @returns The created channel user.
+   * @param digitalHumanId Target digital human identifier.
+   * @param query List filters.
+   * @returns The paged channel user response.
    */
-  createChannelUser(input: UpsertChannelUserRequest): Promise<ChannelUser>;
-
-  /**
-   * Updates one existing channel user record.
-   *
-   * @param id Target channel user identifier.
-   * @param input The validated replacement payload.
-   * @returns The updated channel user.
-   */
-  updateChannelUser(id: string, input: UpsertChannelUserRequest): Promise<ChannelUser>;
-
-  /**
-   * Deletes one existing channel user record and removes it from message scopes.
-   *
-   * @param id Target channel user identifier.
-   */
-  deleteChannelUser(id: string): Promise<void>;
+  listDigitalHumanChannelUsers(
+    digitalHumanId: string,
+    query: ChannelUserListQuery
+  ): Promise<ChannelUserListResponse>;
 
   /**
    * Replaces the channel user JSONL file with uploaded content after validation.
@@ -123,38 +111,28 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
    * @inheritdoc
    */
   public async listChannelUsers(query: ChannelUserListQuery): Promise<ChannelUserListResponse> {
-    const start = normalizePageStart(query.start);
-    const limit = normalizePageLimit(query.limit);
-    let users = sortChannelUsers(await readChannelUsersFile());
+    return buildChannelUserListResponse(sortChannelUsers(await readChannelUsersFile()), query);
+  }
 
-    if (query.digitalHumanId !== undefined) {
-      const scope = await readDigitalHumanChannelScope(query.digitalHumanId);
-      users = users.filter((user) => {
-        if (user.channel.type !== scope.channelType) {
-          return false;
-        }
-        if (scope.allowFrom === "*") {
-          return true;
-        }
-        return scope.allowFrom.has(user.channel.user_id);
-      });
-    }
+  /**
+   * @inheritdoc
+   */
+  public async listDigitalHumanChannelUsers(
+    digitalHumanId: string,
+    query: ChannelUserListQuery
+  ): Promise<ChannelUserListResponse> {
+    const scope = await readDigitalHumanChannelScope(digitalHumanId);
+    const users = sortChannelUsers(await readChannelUsersFile()).filter((user) => {
+      if (user.channel.type !== scope.channelType) {
+        return false;
+      }
+      if (scope.allowFrom === "*") {
+        return true;
+      }
+      return scope.allowFrom.has(user.channel.user_id);
+    });
 
-    if (query.type !== undefined) {
-      users = users.filter((user) => user.channel.type === query.type);
-    }
-
-    if (query.displayName !== undefined) {
-      const displayName = query.displayName.toLocaleLowerCase();
-      users = users.filter((user) => user.displayName.toLocaleLowerCase().includes(displayName));
-    }
-
-    return {
-      items: users.slice(start, start + limit).map(toChannelUserListItem),
-      total: users.length,
-      start,
-      limit
-    };
+    return buildChannelUserListResponse(users, query);
   }
 
   /**
@@ -449,6 +427,38 @@ function sortChannelUsers(users: ChannelUser[]): ChannelUser[] {
     }
     return left.channel.user_id.localeCompare(right.channel.user_id);
   });
+}
+
+/**
+ * Applies list filters and pagination to channel users.
+ *
+ * @param users Sorted channel users.
+ * @param query List filters.
+ * @returns The paged channel user response.
+ */
+function buildChannelUserListResponse(
+  users: ChannelUser[],
+  query: ChannelUserListQuery
+): ChannelUserListResponse {
+  const start = normalizePageStart(query.start);
+  const limit = normalizePageLimit(query.limit);
+  let filteredUsers = users;
+
+  if (query.type !== undefined) {
+    filteredUsers = filteredUsers.filter((user) => user.channel.type === query.type);
+  }
+
+  if (query.displayName !== undefined) {
+    const displayName = query.displayName.toLocaleLowerCase();
+    filteredUsers = filteredUsers.filter((user) => user.displayName.toLocaleLowerCase().includes(displayName));
+  }
+
+  return {
+    items: filteredUsers.slice(start, start + limit).map(toChannelUserListItem),
+    total: filteredUsers.length,
+    start,
+    limit
+  };
 }
 
 /**

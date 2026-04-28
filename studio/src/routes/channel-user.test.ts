@@ -1,11 +1,9 @@
 import type { NextFunction, Request, Response, Router } from "express";
 import { describe, expect, it, vi } from "vitest";
 
+import type { ChannelUserLogic } from "../logic/channel-user";
 import { readChannelUserListQuery } from "./channel-user-query";
-import {
-  createChannelUserRouter,
-  readUpsertChannelUserRequest
-} from "./channel-user";
+import { createChannelUserRouter } from "./channel-user";
 
 /**
  * Creates a minimal response double with Express-like chaining.
@@ -23,6 +21,23 @@ function createResponseDouble(): Response {
 
   vi.mocked(response.status).mockReturnValue(response);
   return response;
+}
+
+/**
+ * Creates a minimal channel-user logic double.
+ *
+ * @param overrides Method overrides for a specific test.
+ * @returns Mocked channel-user logic.
+ */
+function createChannelUserLogicDouble(overrides: Partial<ChannelUserLogic> = {}): ChannelUserLogic {
+  return {
+    listChannelUsers: vi.fn(),
+    listDigitalHumanChannelUsers: vi.fn(),
+    importChannelUsers: vi.fn(),
+    exportChannelUsers: vi.fn(),
+    updateDigitalHumanChannelUsers: vi.fn(),
+    ...overrides
+  };
 }
 
 /**
@@ -61,14 +76,12 @@ describe("readChannelUserListQuery", () => {
       readChannelUserListQuery({
         type: "feishu",
         displayName: "Alice",
-        digitalHumanId: "agent-1",
         start: "10",
         limit: "20"
       })
     ).toEqual({
       type: "feishu",
       displayName: "Alice",
-      digitalHumanId: "agent-1",
       start: 10,
       limit: 20
     });
@@ -84,46 +97,9 @@ describe("readChannelUserListQuery", () => {
     expect(
       readChannelUserListQuery({
         displayName: " ",
-        digitalHumanId: ""
+        digitalHumanId: "agent-1"
       })
     ).toEqual({});
-  });
-});
-
-describe("readUpsertChannelUserRequest", () => {
-  it("parses a valid create/update payload", () => {
-    expect(
-      readUpsertChannelUserRequest({
-        displayName: "Alice",
-        channel: {
-          type: "dingding",
-          user_id: "o-1"
-        }
-      })
-    ).toEqual({
-      displayName: "Alice",
-      channel: {
-        type: "dingding",
-        user_id: "o-1"
-      }
-    });
-  });
-
-  it("rejects invalid request bodies", () => {
-    expect(() => readUpsertChannelUserRequest(null)).toThrow("Request body must be a JSON object");
-    expect(() => readUpsertChannelUserRequest({ displayName: "Alice" })).toThrow("channel is required");
-    expect(() => readUpsertChannelUserRequest({
-      displayName: "Alice",
-      channel: { type: "slack", user_id: "o-1" }
-    })).toThrow('type must be "feishu" or "dingding"');
-    expect(() => readUpsertChannelUserRequest({
-      displayName: "",
-      channel: { type: "feishu", user_id: "o-1" }
-    })).toThrow("displayName is required");
-    expect(() => readUpsertChannelUserRequest({
-      displayName: "Alice",
-      channel: { user_id: "o-1" }
-    })).toThrow('channel.type must be "feishu" or "dingding"');
   });
 });
 
@@ -131,20 +107,14 @@ describe("createChannelUserRouter", () => {
   it("returns the channel user list", async () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
+    const router = createChannelUserRouter(createChannelUserLogicDouble({
       listChannelUsers: vi.fn().mockResolvedValue({
         items: [{ displayName: "Alice", channel: { type: "feishu", user_id: "o-1" } }],
         total: 1,
         start: 0,
         limit: 50
-      }),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+      })
+    }));
 
     await findHandler(router as Router, "get", "/api/dip-studio/v1/channel-users")?.(
       { query: {} } as unknown as Request,
@@ -165,15 +135,9 @@ describe("createChannelUserRouter", () => {
   it("wraps unexpected list failures as 502", async () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn().mockRejectedValue(new Error("boom")),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+    const router = createChannelUserRouter(createChannelUserLogicDouble({
+      listChannelUsers: vi.fn().mockRejectedValue(new Error("boom"))
+    }));
 
     await findHandler(router as Router, "get", "/api/dip-studio/v1/channel-users")?.(
       { query: {} } as unknown as Request,
@@ -189,144 +153,23 @@ describe("createChannelUserRouter", () => {
     );
   });
 
-  it("creates one channel user", async () => {
-    const response = createResponseDouble();
-    const next = vi.fn<NextFunction>();
-    const createChannelUser = vi.fn().mockResolvedValue({
-      id: "feishu:o-1",
-      displayName: "Alice",
-      channel: {
-        type: "feishu",
-        user_id: "o-1"
-      }
-    });
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser,
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+  it("does not register single-record create, update, or delete routes", () => {
+    const router = createChannelUserRouter(createChannelUserLogicDouble());
 
-    await findHandler(router as Router, "post", "/api/dip-studio/v1/channel-users")?.(
-      {
-        body: {
-          displayName: "Alice",
-          channel: {
-            type: "feishu",
-            user_id: "o-1"
-          }
-        }
-      } as unknown as Request,
-      response,
-      next
-    );
-
-    expect(createChannelUser).toHaveBeenCalledWith({
-      displayName: "Alice",
-      channel: {
-        type: "feishu",
-        user_id: "o-1"
-      }
-    });
-    expect(response.status).toHaveBeenCalledWith(201);
-  });
-
-  it("updates and deletes a channel user", async () => {
-    const response = createResponseDouble();
-    const next = vi.fn<NextFunction>();
-    const updateChannelUser = vi.fn().mockResolvedValue({
-      id: "feishu:o-2",
-      displayName: "Alice",
-      channel: { type: "feishu", user_id: "o-2" }
-    });
-    const deleteChannelUser = vi.fn().mockResolvedValue(undefined);
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser,
-      deleteChannelUser,
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
-
-    await findHandler(router as Router, "put", "/api/dip-studio/v1/channel-users/:id")?.(
-      {
-        params: { id: "feishu:o-1" },
-        body: {
-          displayName: "Alice",
-          channel: { type: "feishu", user_id: "o-2" }
-        }
-      } as unknown as Request,
-      response,
-      next
-    );
-    await findHandler(router as Router, "delete", "/api/dip-studio/v1/channel-users/:id")?.(
-      { params: { id: "feishu:o-1" } } as unknown as Request,
-      response,
-      next
-    );
-
-    expect(updateChannelUser).toHaveBeenCalledWith("feishu:o-1", {
-      displayName: "Alice",
-      channel: { type: "feishu", user_id: "o-2" }
-    });
-    expect(deleteChannelUser).toHaveBeenCalledWith("feishu:o-1");
-    expect(response.end).toHaveBeenCalled();
-  });
-
-  it("rejects missing route ids for update and delete", async () => {
-    const response = createResponseDouble();
-    const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
-
-    await findHandler(router as Router, "put", "/api/dip-studio/v1/channel-users/:id")?.(
-      { params: { id: "" }, body: {} } as unknown as Request,
-      response,
-      next
-    );
-    await findHandler(router as Router, "delete", "/api/dip-studio/v1/channel-users/:id")?.(
-      { params: { id: "" } } as unknown as Request,
-      response,
-      next
-    );
-
-    expect(next).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ statusCode: 400, message: "id path parameter is required" })
-    );
-    expect(next).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ statusCode: 400, message: "id path parameter is required" })
-    );
+    expect(findHandler(router as Router, "post", "/api/dip-studio/v1/channel-users")).toBeUndefined();
+    expect(findHandler(router as Router, "put", "/api/dip-studio/v1/channel-users/:id")).toBeUndefined();
+    expect(findHandler(router as Router, "delete", "/api/dip-studio/v1/channel-users/:id")).toBeUndefined();
   });
 
   it("exports JSONL as attachment", async () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
+    const router = createChannelUserRouter(createChannelUserLogicDouble({
       exportChannelUsers: vi.fn().mockResolvedValue({
         filename: "通道用户_2026_04_16_15_16_08.jsonl",
         content: "{\"displayName\":\"Alice\",\"channel\":{\"type\":\"feishu\",\"user_id\":\"o-1\"}}\n"
-      }),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+      })
+    }));
 
     await findHandler(router as Router, "get", "/api/dip-studio/v1/channel-users/export")?.(
       {} as Request,
@@ -345,15 +188,7 @@ describe("createChannelUserRouter", () => {
   it("fails import when multipart file is missing", async () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
-      importChannelUsers: vi.fn(),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+    const router = createChannelUserRouter(createChannelUserLogicDouble());
 
     await findHandler(router as Router, "post", "/api/dip-studio/v1/channel-users/import", 1)?.(
       { file: undefined } as unknown as Request,
@@ -373,15 +208,9 @@ describe("createChannelUserRouter", () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
     const importChannelUsers = vi.fn().mockResolvedValue({ count: 1 });
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
+    const router = createChannelUserRouter(createChannelUserLogicDouble({
       importChannelUsers,
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+    }));
 
     await findHandler(router as Router, "post", "/api/dip-studio/v1/channel-users/import", 1)?.(
       {
@@ -401,15 +230,9 @@ describe("createChannelUserRouter", () => {
   it("wraps unexpected import failures as 502", async () => {
     const response = createResponseDouble();
     const next = vi.fn<NextFunction>();
-    const router = createChannelUserRouter({
-      listChannelUsers: vi.fn(),
-      createChannelUser: vi.fn(),
-      updateChannelUser: vi.fn(),
-      deleteChannelUser: vi.fn(),
+    const router = createChannelUserRouter(createChannelUserLogicDouble({
       importChannelUsers: vi.fn().mockRejectedValue(new Error("boom")),
-      exportChannelUsers: vi.fn(),
-      updateDigitalHumanChannelUsers: vi.fn()
-    });
+    }));
 
     await findHandler(router as Router, "post", "/api/dip-studio/v1/channel-users/import", 1)?.(
       {

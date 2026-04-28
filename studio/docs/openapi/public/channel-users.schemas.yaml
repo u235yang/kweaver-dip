@@ -17,20 +17,6 @@ components:
         - type
         - user_id
 
-    ChannelUser:
-      type: object
-      properties:
-        id:
-          type: string
-        displayName:
-          type: string
-        channel:
-          $ref: '#/components/schemas/ChannelUserChannel'
-      required:
-        - id
-        - displayName
-        - channel
-
     ChannelUserListItem:
       type: object
       properties:
@@ -60,17 +46,6 @@ components:
         - total
         - start
         - limit
-
-    UpsertChannelUserRequest:
-      type: object
-      properties:
-        displayName:
-          type: string
-        channel:
-          $ref: '#/components/schemas/ChannelUserChannel'
-      required:
-        - displayName
-        - channel
 
     ChannelUserImportResult:
       type: object

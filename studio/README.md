@@ -469,7 +469,6 @@ DIP 数字员工 Web 界面
 | -- | -- | -- |
 | type | `"feishu" \| "dingding"` | 可选；按通道类型过滤 |
 | displayName | string | 可选；按显示名做不区分大小写的部分匹配过滤 |
-| digitalHumanId | string | 可选；按指定数字员工的投递范围过滤 |
 | start | integer | 可选；分页起始偏移，最小值 `0` |
 | limit | integer | 可选；分页大小，最小值 `1` |
 
@@ -495,62 +494,6 @@ DIP 数字员工 Web 界面
 | -- | -- | -- |
 | type | `"feishu" \| "dingding"` | 通道类型 |
 | user_id | string | 通道用户 User ID |
-
-#### 创建通道用户
-
-`POST /api/dip-studio/v1/channel-users`
-
-请求体：`application/json`
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| displayName | string | 是 | 通道用户显示名 |
-| channel | ChannelUserChannel | 是 | 通道信息 |
-
-响应：`201 application/json`
-
-| 参数 | 类型 | 说明 |
-| -- | -- | -- |
-| id | string | 通道用户 ID |
-| displayName | string | 通道用户显示名 |
-| channel | ChannelUserChannel | 通道信息 |
-
-#### 更新通道用户
-
-`PUT /api/dip-studio/v1/channel-users/{id}`
-
-路径参数：
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| id | string | 是 | 通道用户 ID |
-
-请求体：`application/json`
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| displayName | string | 是 | 通道用户显示名 |
-| channel | ChannelUserChannel | 是 | 通道信息 |
-
-响应：`200 application/json`
-
-| 参数 | 类型 | 说明 |
-| -- | -- | -- |
-| id | string | 通道用户 ID |
-| displayName | string | 通道用户显示名 |
-| channel | ChannelUserChannel | 通道信息 |
-
-#### 删除通道用户
-
-`DELETE /api/dip-studio/v1/channel-users/{id}`
-
-路径参数：
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| id | string | 是 | 通道用户 ID |
-
-响应：`204 No Content`
 
 #### 导出通道用户 JSONL
 

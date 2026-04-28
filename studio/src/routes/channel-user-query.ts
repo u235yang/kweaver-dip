@@ -18,14 +18,12 @@ export function readChannelUserListQuery(query: Request["query"]): ChannelUserLi
     : {};
   const type = readOptionalChannelUserType(rawQuery.type);
   const displayName = readOptionalTrimmedString(rawQuery.displayName);
-  const digitalHumanId = readOptionalTrimmedString(rawQuery.digitalHumanId);
   const start = readOptionalNumber(rawQuery.start, "start");
   const limit = readOptionalNumber(rawQuery.limit, "limit");
 
   return {
     ...(type !== undefined ? { type } : {}),
     ...(displayName !== undefined ? { displayName } : {}),
-    ...(digitalHumanId !== undefined ? { digitalHumanId } : {}),
     ...(start !== undefined ? { start } : {}),
     ...(limit !== undefined ? { limit } : {})
   };

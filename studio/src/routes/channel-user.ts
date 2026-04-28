@@ -7,11 +7,8 @@ import { OpenClawGatewayClient } from "../infra/openclaw-gateway-client";
 import { DefaultChannelUserLogic, type ChannelUserLogic } from "../logic/channel-user";
 import { readChannelUserListQuery } from "./channel-user-query";
 import type {
-  ChannelUser,
   ChannelUserExportResult,
-  ChannelUserListResponse,
-  ChannelUserType,
-  UpsertChannelUserRequest
+  ChannelUserListResponse
 } from "../types/channel-user";
 import { getEnv } from "../utils/env";
 
@@ -55,70 +52,6 @@ export function createChannelUserRouter(
           error instanceof HttpError
             ? error
             : new HttpError(502, "Failed to query channel users")
-        );
-      }
-    }
-  );
-
-  router.post(
-    "/api/dip-studio/v1/channel-users",
-    async (
-      request: Request<unknown, ChannelUser, UpsertChannelUserRequest>,
-      response: Response<ChannelUser>,
-      next: NextFunction
-    ): Promise<void> => {
-      try {
-        response.status(201).json(
-          await logic.createChannelUser(readUpsertChannelUserRequest(request.body))
-        );
-      } catch (error) {
-        next(
-          error instanceof HttpError
-            ? error
-            : new HttpError(502, "Failed to create channel user")
-        );
-      }
-    }
-  );
-
-  router.put(
-    "/api/dip-studio/v1/channel-users/:id",
-    async (
-      request: Request<{ id: string }, ChannelUser, UpsertChannelUserRequest>,
-      response: Response<ChannelUser>,
-      next: NextFunction
-    ): Promise<void> => {
-      try {
-        const id = readRequiredIdParam(request.params.id, "id");
-        response.status(200).json(
-          await logic.updateChannelUser(id, readUpsertChannelUserRequest(request.body))
-        );
-      } catch (error) {
-        next(
-          error instanceof HttpError
-            ? error
-            : new HttpError(502, "Failed to update channel user")
-        );
-      }
-    }
-  );
-
-  router.delete(
-    "/api/dip-studio/v1/channel-users/:id",
-    async (
-      request: Request<{ id: string }>,
-      response: Response,
-      next: NextFunction
-    ): Promise<void> => {
-      try {
-        const id = readRequiredIdParam(request.params.id, "id");
-        await logic.deleteChannelUser(id);
-        response.status(204).end();
-      } catch (error) {
-        next(
-          error instanceof HttpError
-            ? error
-            : new HttpError(502, "Failed to delete channel user")
         );
       }
     }
@@ -173,33 +106,6 @@ export function createChannelUserRouter(
 }
 
 /**
- * Parses and validates one create / update request body.
- *
- * @param body Raw parsed request body.
- * @returns The normalized payload.
- */
-export function readUpsertChannelUserRequest(body: unknown): UpsertChannelUserRequest {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    throw new HttpError(400, "Request body must be a JSON object");
-  }
-
-  const raw = body as Record<string, unknown>;
-  const displayName = readRequiredTrimmedString(raw.displayName, "displayName");
-  if (typeof raw.channel !== "object" || raw.channel === null || Array.isArray(raw.channel)) {
-    throw new HttpError(400, "channel is required");
-  }
-  const channel = raw.channel as Record<string, unknown>;
-
-  return {
-    displayName,
-    channel: {
-      type: readRequiredChannelUserType(channel.type),
-      user_id: readRequiredTrimmedString(channel.user_id, "channel.user_id")
-    }
-  };
-}
-
-/**
  * Handles multipart parsing for the JSONL import endpoint.
  *
  * @param request Incoming HTTP request.
@@ -236,48 +142,4 @@ function writeJsonlDownload(response: Response, result: ChannelUserExportResult)
   response.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
   response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(result.filename)}`);
   response.status(200).send(result.content);
-}
-
-/**
- * Reads one required route parameter.
- *
- * @param value Raw route parameter value.
- * @param key Parameter key used in the error message.
- * @returns The normalized string.
- */
-function readRequiredIdParam(value: string | undefined, key: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new HttpError(400, `${key} path parameter is required`);
-  }
-  return value.trim();
-}
-
-/**
- * Reads one required non-empty string.
- *
- * @param value Raw field value.
- * @param key Field key.
- * @returns Trimmed non-empty string.
- */
-function readRequiredTrimmedString(value: unknown, key: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new HttpError(400, `${key} is required`);
-  }
-  return value.trim();
-}
-
-/**
- * Reads one required channel user type.
- *
- * @param value Raw field value.
- * @returns Validated channel user type.
- */
-function readRequiredChannelUserType(value: unknown): ChannelUserType {
-  const type = value === "feishu" || value === "dingding"
-    ? value
-    : undefined;
-  if (type === undefined) {
-    throw new HttpError(400, 'channel.type must be "feishu" or "dingding"');
-  }
-  return type;
 }

@@ -64,6 +64,7 @@ type LogicMocks = Partial<{
   listDigitalHumans: () => Promise<unknown>;
   getDigitalHuman: (id: string) => Promise<unknown>;
   listChannelUsers: (query: unknown) => Promise<unknown>;
+  listDigitalHumanChannelUsers: (id: string, query: unknown) => Promise<unknown>;
   createDigitalHuman: (body: unknown) => Promise<unknown>;
   updateDigitalHuman: (id: string, patch: unknown) => Promise<unknown>;
   deleteDigitalHuman: (id: string, deleteFiles?: boolean) => Promise<void>;
@@ -104,6 +105,14 @@ async function importRouterWithLogicMock(
     DefaultChannelUserLogic: vi.fn().mockImplementation(() => ({
       listChannelUsers:
         logic.listChannelUsers ??
+        vi.fn().mockResolvedValue({
+          items: [],
+          total: 0,
+          start: 0,
+          limit: 20
+        }),
+      listDigitalHumanChannelUsers:
+        logic.listDigitalHumanChannelUsers ??
         vi.fn().mockResolvedValue({
           items: [],
           total: 0,
@@ -280,7 +289,7 @@ describe("createDigitalHumanRouter", () => {
   });
 
   it("lists available channel users for the specified digital human", async () => {
-    const listChannelUsers = vi.fn().mockResolvedValue({
+    const listDigitalHumanChannelUsers = vi.fn().mockResolvedValue({
       items: [
         {
           displayName: "Alice",
@@ -295,7 +304,7 @@ describe("createDigitalHumanRouter", () => {
       limit: 20
     });
     const { createDigitalHumanRouter } = await importRouterWithLogicMock({
-      listChannelUsers
+      listDigitalHumanChannelUsers
     });
     const router = createDigitalHumanRouter() as Router;
     const handler = findHandler(router, "get", channelUsersPath);
@@ -308,7 +317,7 @@ describe("createDigitalHumanRouter", () => {
       next
     );
 
-    expect(listChannelUsers).toHaveBeenCalledWith({ digitalHumanId: "agent-1" });
+    expect(listDigitalHumanChannelUsers).toHaveBeenCalledWith("agent-1", {});
     expect(response.status).toHaveBeenCalledWith(200);
     expect(response.json).toHaveBeenCalledWith({
       items: [
@@ -328,14 +337,14 @@ describe("createDigitalHumanRouter", () => {
   });
 
   it("passes type and displayName filters when listing channel users", async () => {
-    const listChannelUsers = vi.fn().mockResolvedValue({
+    const listDigitalHumanChannelUsers = vi.fn().mockResolvedValue({
       items: [],
       total: 0,
       start: 0,
       limit: 20
     });
     const { createDigitalHumanRouter } = await importRouterWithLogicMock({
-      listChannelUsers
+      listDigitalHumanChannelUsers
     });
     const router = createDigitalHumanRouter() as Router;
     const handler = findHandler(router, "get", channelUsersPath);
@@ -352,8 +361,7 @@ describe("createDigitalHumanRouter", () => {
       vi.fn<NextFunction>()
     );
 
-    expect(listChannelUsers).toHaveBeenCalledWith({
-      digitalHumanId: "agent-1",
+    expect(listDigitalHumanChannelUsers).toHaveBeenCalledWith("agent-1", {
       type: "feishu",
       displayName: "Alice"
     });

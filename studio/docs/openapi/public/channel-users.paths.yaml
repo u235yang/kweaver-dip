@@ -31,10 +31,6 @@ paths:
           description: 按显示名做不区分大小写的部分匹配过滤
           schema:
             type: string
-        - name: digitalHumanId
-          in: query
-          schema:
-            type: string
         - name: start
           in: query
           schema:
@@ -58,95 +54,6 @@ paths:
             application/json:
               schema:
                 $ref: '../common.schemas.yaml#/schemas/ErrorResponse'
-        "401":
-          $ref: '../common.schemas.yaml#/errors/Unauthorized'
-        "403":
-          $ref: '../common.schemas.yaml#/errors/Forbidden'
-        "404":
-          $ref: '../common.schemas.yaml#/errors/NotFound'
-        "500":
-          $ref: '../common.schemas.yaml#/errors/InternalServerError'
-        "502":
-          $ref: '../common.schemas.yaml#/errors/BadGateway'
-    post:
-      operationId: createChannelUser
-      summary: 创建通道用户
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: './channel-users.schemas.yaml#/components/schemas/UpsertChannelUserRequest'
-      responses:
-        "201":
-          description: 创建成功
-          content:
-            application/json:
-              schema:
-                $ref: './channel-users.schemas.yaml#/components/schemas/ChannelUser'
-        "400":
-          $ref: '../common.schemas.yaml#/errors/InvalidParameter'
-        "401":
-          $ref: '../common.schemas.yaml#/errors/Unauthorized'
-        "403":
-          $ref: '../common.schemas.yaml#/errors/Forbidden'
-        "409":
-          $ref: '../common.schemas.yaml#/errors/Conflict'
-        "500":
-          $ref: '../common.schemas.yaml#/errors/InternalServerError'
-        "502":
-          $ref: '../common.schemas.yaml#/errors/BadGateway'
-  /channel-users/{id}:
-    put:
-      operationId: updateChannelUser
-      summary: 更新通道用户
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: './channel-users.schemas.yaml#/components/schemas/UpsertChannelUserRequest'
-      responses:
-        "200":
-          description: 更新成功
-          content:
-            application/json:
-              schema:
-                $ref: './channel-users.schemas.yaml#/components/schemas/ChannelUser'
-        "400":
-          $ref: '../common.schemas.yaml#/errors/InvalidParameter'
-        "401":
-          $ref: '../common.schemas.yaml#/errors/Unauthorized'
-        "403":
-          $ref: '../common.schemas.yaml#/errors/Forbidden'
-        "404":
-          $ref: '../common.schemas.yaml#/errors/NotFound'
-        "409":
-          $ref: '../common.schemas.yaml#/errors/Conflict'
-        "500":
-          $ref: '../common.schemas.yaml#/errors/InternalServerError'
-        "502":
-          $ref: '../common.schemas.yaml#/errors/BadGateway'
-    delete:
-      operationId: deleteChannelUser
-      summary: 删除通道用户
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: 删除成功
-        "400":
-          $ref: '../common.schemas.yaml#/errors/InvalidParameter'
         "401":
           $ref: '../common.schemas.yaml#/errors/Unauthorized'
         "403":

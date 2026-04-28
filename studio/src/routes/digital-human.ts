@@ -398,11 +398,8 @@ export function createDigitalHumanRouter(): Router {
     ): Promise<void> => {
       try {
         const id = resolveIdParam(request.params.id);
-        const query = {
-          ...readChannelUserListQuery(request.query),
-          digitalHumanId: id
-        };
-        const result = await channelUserLogic.listChannelUsers(query);
+        const query = readChannelUserListQuery(request.query);
+        const result = await channelUserLogic.listDigitalHumanChannelUsers(id, query);
 
         response.status(200).json(result);
       } catch (error) {

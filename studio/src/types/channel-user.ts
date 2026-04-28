@@ -69,11 +69,6 @@ export interface ChannelUserListQuery {
   displayName?: string;
 
   /**
-   * Optional digital human identifier used to scope results by its whitelist.
-   */
-  digitalHumanId?: string;
-
-  /**
    * Zero-based pagination offset.
    */
   start?: number;

@@ -10,6 +10,7 @@ import dh6 from '@/assets/icons/avator/dh_6.svg'
 import dh7 from '@/assets/icons/avator/dh_7.svg'
 import dh8 from '@/assets/icons/avator/dh_8.svg'
 import type { AiPromptSubmitPayload } from './components/AiPromptInput/types'
+import { replaceChannelMentionsWithDisplayNames } from './components/ChannelMention/utils'
 import type { DipChatKitMessageTurn } from './types'
 
 const presetAvatarIconMap: Record<string, string> = {
@@ -50,7 +51,10 @@ export const getConversationTitle = (messageTurns: DipChatKitMessageTurn[]): str
   if (isEmpty(messageTurns)) return defaultTitle
   const firstQuestion = messageTurns[0]?.question ?? ''
   if (!firstQuestion) return defaultTitle
-  return truncate(firstQuestion, { length: 50, omission: '' })
+  return truncate(replaceChannelMentionsWithDisplayNames(firstQuestion), {
+    length: 50,
+    omission: '',
+  })
 }
 
 export const maskFirstQuestionTurn = (

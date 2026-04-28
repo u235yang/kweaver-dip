@@ -4,6 +4,8 @@ import '@ant-design/x-markdown/dist/x-markdown.css'
 import clsx from 'clsx'
 import type React from 'react'
 import { useMemo } from 'react'
+import ChannelMention from '../ChannelMention'
+import { CHANNEL_MENTION_TAG, channelMentionMarkedExtension } from '../ChannelMention/utils'
 import ChartRenderer from '../ChartRenderer'
 import { parseDipChatKitChartPayload } from '../ChartRenderer/utils'
 import styles from './index.module.less'
@@ -18,6 +20,10 @@ const normalizeText = (value: unknown): string => {
 const normalizeLanguage = (lang?: string): string => {
   if (!lang) return 'text'
   return lang.trim().split(/\s+/)[0]?.toLowerCase() || 'text'
+}
+
+const ChannelMentionRenderer: React.FC<MarkdownComponentProps> = ({ children }) => {
+  return <ChannelMention>{children}</ChannelMention>
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
@@ -58,13 +64,16 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
     return {
       code: CodeRenderer,
+      [CHANNEL_MENTION_TAG]: ChannelMentionRenderer,
       ...(components || {}),
     }
   }, [allowLenientChartParse, components])
 
   return (
     <div className={clsx('MarkdownRenderer', styles.root, styles[variant], className)}>
-      <XMarkdown components={markdownComponents}>{content}</XMarkdown>
+      <XMarkdown components={markdownComponents} config={channelMentionMarkedExtension}>
+        {content}
+      </XMarkdown>
     </div>
   )
 }

@@ -1,14 +1,14 @@
 import dayjs from 'dayjs'
 import intl from 'react-intl-universal'
 import type { SessionSummary } from '@/apis/dip-studio/sessions'
+import { replaceChannelMentionsWithDisplayNames } from '@/components/DipChatKit/components/ChannelMention/utils'
 
 export function getSessionTitle(session: SessionSummary): string {
   const displayName = session.displayName?.trim() || ''
   const lastUnderscoreIndex = displayName.lastIndexOf('_')
-  if (lastUnderscoreIndex > 0) {
-    return displayName.slice(0, lastUnderscoreIndex)
-  }
-  return displayName || '--'
+  const title = lastUnderscoreIndex > 0 ? displayName.slice(0, lastUnderscoreIndex) : displayName
+  const resolvedTitle = replaceChannelMentionsWithDisplayNames(title).trim()
+  return resolvedTitle || '--'
 }
 
 /** 今天/明天/昨天 HH:mm，否则 MM/DD HH:mm */

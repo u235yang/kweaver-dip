@@ -7,6 +7,8 @@ import type React from 'react'
 import { useEffect, useState } from 'react'
 import intl from 'react-intl-universal'
 import ResizeObserver from '@/components/ResizeObserver'
+import ChannelMention from '../../../ChannelMention'
+import { renderTextWithChannelMentions } from '../../../ChannelMention/utils'
 import MessageActions from '../MessageActions'
 import styles from './index.module.less'
 import type { UserQuestionBubbleProps } from './types'
@@ -66,7 +68,13 @@ const UserQuestionBubble: React.FC<UserQuestionBubbleProps> = ({
         className={styles.bubble}
         content={question}
         contentRender={(content) => {
-          return <span className={styles.questionText}>{content}</span>
+          return (
+            <span className={styles.questionText}>
+              {renderTextWithChannelMentions(String(content || ''), (label, key) => (
+                <ChannelMention key={key}>{label}</ChannelMention>
+              ))}
+            </span>
+          )
         }}
         shape="corner"
         placement="end"

@@ -149,10 +149,6 @@ BE ->> SW: 返回列表数据
 
 - 过滤条件支持传入 `type` 和 `displayName`，根据过滤条件参数进一步筛选过滤列表。
 
-### 获取数字员工的 @提及 列表
-
-- 通过 HTTP GET /digital-human/:id/channel-users 获取指定数字员工的可 @提及 列表
-
 ### 投递消息
 
 消息中的内联块，展开为原始数据结构为使用 “@{}“ 包含的结构：`@{channel:<channelType>:user:<displayName>:<userId>}`，示例：

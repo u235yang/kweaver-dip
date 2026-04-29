@@ -163,33 +163,3 @@ export interface ChannelUserExportResult {
    */
   content: string;
 }
-
-/**
- * Request body used to update a digital human's channel user whitelist.
- */
-export interface UpdateDigitalHumanChannelUsersRequest {
-  /**
-   * Selected channel user IDs.
-   */
-  allowFrom: string[];
-}
-
-/**
- * Response body returned after updating a digital human's channel user whitelist.
- */
-export interface DigitalHumanChannelUsersResponse {
-  /**
-   * Target digital human identifier.
-   */
-  digitalHumanId: string;
-
-  /**
-   * Target channel type derived from the digital human binding.
-   */
-  channelType: ChannelUserType;
-
-  /**
-   * Effective User ID whitelist written to `allowFrom`.
-   */
-  allowFrom: string[];
-}

@@ -32,10 +32,8 @@ function createResponseDouble(): Response {
 function createChannelUserLogicDouble(overrides: Partial<ChannelUserLogic> = {}): ChannelUserLogic {
   return {
     listChannelUsers: vi.fn(),
-    listDigitalHumanChannelUsers: vi.fn(),
     importChannelUsers: vi.fn(),
     exportChannelUsers: vi.fn(),
-    updateDigitalHumanChannelUsers: vi.fn(),
     ...overrides
   };
 }

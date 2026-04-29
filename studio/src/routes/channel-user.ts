@@ -1,26 +1,15 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 
-import { OpenClawAgentsGatewayAdapter } from "../adapters/openclaw-agents-adapter";
 import { HttpError } from "../errors/http-error";
-import { OpenClawGatewayClient } from "../infra/openclaw-gateway-client";
 import { DefaultChannelUserLogic, type ChannelUserLogic } from "../logic/channel-user";
 import { readChannelUserListQuery } from "./channel-user-query";
 import type {
   ChannelUserExportResult,
   ChannelUserListResponse
 } from "../types/channel-user";
-import { getEnv } from "../utils/env";
 
-const env = getEnv();
-const openClawAgentsAdapter = new OpenClawAgentsGatewayAdapter(
-  OpenClawGatewayClient.getInstance({
-    url: env.openClawGatewayUrl,
-    token: env.openClawGatewayToken,
-    timeoutMs: env.openClawGatewayTimeoutMs
-  })
-);
-const channelUserLogic = new DefaultChannelUserLogic({ openClawAgentsAdapter });
+const channelUserLogic = new DefaultChannelUserLogic();
 const channelUserUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }

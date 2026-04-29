@@ -2,9 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { OpenClawAgentsAdapter } from "../adapters/openclaw-agents-adapter";
 import { HttpError } from "../errors/http-error";
-import { normalizeOpenClawAccountIdFromAppId, resolveOpenClawConfigPath } from "./digital-human";
 import type {
   ChannelUser,
   ChannelUserExportResult,
@@ -14,8 +12,6 @@ import type {
   ChannelUserListQuery,
   ChannelUserListResponse,
   ChannelUserType,
-  DigitalHumanChannelUsersResponse,
-  UpdateDigitalHumanChannelUsersRequest,
   UpsertChannelUserRequest
 } from "../types/channel-user";
 
@@ -24,7 +20,7 @@ const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 200;
 
 /**
- * Application logic used to manage persisted channel users and digital-human message scopes.
+ * Application logic used to manage persisted channel users.
  */
 export interface ChannelUserLogic {
   /**
@@ -34,18 +30,6 @@ export interface ChannelUserLogic {
    * @returns The paged channel user response.
    */
   listChannelUsers(query: ChannelUserListQuery): Promise<ChannelUserListResponse>;
-
-  /**
-   * Reads the channel users available to one digital human.
-   *
-   * @param digitalHumanId Target digital human identifier.
-   * @param query List filters.
-   * @returns The paged channel user response.
-   */
-  listDigitalHumanChannelUsers(
-    digitalHumanId: string,
-    query: ChannelUserListQuery
-  ): Promise<ChannelUserListResponse>;
 
   /**
    * Replaces the channel user JSONL file with uploaded content after validation.
@@ -61,29 +45,12 @@ export interface ChannelUserLogic {
    * @returns Filename and serialized content.
    */
   exportChannelUsers(): Promise<ChannelUserExportResult>;
-
-  /**
-   * Updates the selected whitelist for one digital human.
-   *
-   * @param digitalHumanId Target digital human identifier.
-   * @param request Selected channel users.
-   * @returns The persisted whitelist payload.
-   */
-  updateDigitalHumanChannelUsers(
-    digitalHumanId: string,
-    request: UpdateDigitalHumanChannelUsersRequest
-  ): Promise<DigitalHumanChannelUsersResponse>;
 }
 
 /**
  * Options required to construct {@link DefaultChannelUserLogic}.
  */
 export interface ChannelUserLogicOptions {
-  /**
-   * OpenClaw gateway adapter used for `config.get` / `config.patch`.
-   */
-  openClawAgentsAdapter: OpenClawAgentsAdapter;
-
   /**
    * Clock used to build export filenames.
    */
@@ -94,7 +61,6 @@ export interface ChannelUserLogicOptions {
  * Default channel user management implementation backed by `channel-users.jsonl`.
  */
 export class DefaultChannelUserLogic implements ChannelUserLogic {
-  private readonly openClawAgentsAdapter: OpenClawAgentsAdapter;
   private readonly now: () => Date;
 
   /**
@@ -102,8 +68,7 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
    *
    * @param options Dependencies and configuration.
    */
-  public constructor(options: ChannelUserLogicOptions) {
-    this.openClawAgentsAdapter = options.openClawAgentsAdapter;
+  public constructor(options: ChannelUserLogicOptions = {}) {
     this.now = options.now ?? (() => new Date());
   }
 
@@ -112,27 +77,6 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
    */
   public async listChannelUsers(query: ChannelUserListQuery): Promise<ChannelUserListResponse> {
     return buildChannelUserListResponse(sortChannelUsers(await readChannelUsersFile()), query);
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public async listDigitalHumanChannelUsers(
-    digitalHumanId: string,
-    query: ChannelUserListQuery
-  ): Promise<ChannelUserListResponse> {
-    const scope = await readDigitalHumanChannelScope(digitalHumanId);
-    const users = sortChannelUsers(await readChannelUsersFile()).filter((user) => {
-      if (user.channel.type !== scope.channelType) {
-        return false;
-      }
-      if (scope.allowFrom === "*") {
-        return true;
-      }
-      return scope.allowFrom.has(user.channel.user_id);
-    });
-
-    return buildChannelUserListResponse(users, query);
   }
 
   /**
@@ -179,12 +123,6 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
     users[index] = updated;
     await writeChannelUsersFile(sortChannelUsers(users));
 
-    if (current.channel.user_id !== updated.channel.user_id || current.channel.type !== updated.channel.type) {
-      await rewriteOpenClawConfig(async (config) => {
-        replaceAllowFromValue(config, current.channel.type, current.channel.user_id, updated.channel.user_id);
-      }, this.openClawAgentsAdapter);
-    }
-
     return updated;
   }
 
@@ -198,12 +136,8 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
       throw new HttpError(404, `Channel user not found: ${id}`);
     }
 
-    const [removed] = users.splice(index, 1);
+    users.splice(index, 1);
     await writeChannelUsersFile(sortChannelUsers(users));
-
-    await rewriteOpenClawConfig(async (config) => {
-      removeAllowFromValue(config, removed.channel.type, removed.channel.user_id);
-    }, this.openClawAgentsAdapter);
   }
   /**
    * @inheritdoc
@@ -221,12 +155,6 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
 
     const sorted = sortChannelUsers(users);
     await writeChannelUsersFile(sorted);
-    await rewriteOpenClawConfig(async (config) => {
-      pruneAllowFromValues(config, new Map([
-        ["feishu", new Set(sorted.filter((user) => user.channel.type === "feishu").map((user) => user.channel.user_id))],
-        ["dingding", new Set(sorted.filter((user) => user.channel.type === "dingding").map((user) => user.channel.user_id))]
-      ]));
-    }, this.openClawAgentsAdapter);
 
     return { count: sorted.length };
   }
@@ -244,40 +172,6 @@ export class DefaultChannelUserLogic implements ChannelUserLogic {
     };
   }
 
-  /**
-   * @inheritdoc
-   */
-  public async updateDigitalHumanChannelUsers(
-    digitalHumanId: string,
-    request: UpdateDigitalHumanChannelUsersRequest
-  ): Promise<DigitalHumanChannelUsersResponse> {
-    const channelUsers = await readChannelUsersFile();
-    const scope = await readDigitalHumanChannelScope(digitalHumanId);
-    const allowFrom = dedupeStrings(request.allowFrom);
-    const selectedUsers = allowFrom.map((userId) => {
-      const user = channelUsers.find((item) => item.channel.user_id === userId);
-      if (user === undefined) {
-        throw new HttpError(400, `Channel user id not found: ${userId}`);
-      }
-      if (user.channel.type !== scope.channelType) {
-        throw new HttpError(
-          400,
-          `Channel user id ${userId} does not belong to digital human channel ${scope.channelType}`
-        );
-      }
-      return user;
-    });
-
-    await rewriteOpenClawConfig(async (config) => {
-      setDigitalHumanAllowFrom(config, digitalHumanId, scope.channelKey, scope.accountId, allowFrom);
-    }, this.openClawAgentsAdapter);
-
-    return {
-      digitalHumanId,
-      channelType: scope.channelType,
-      allowFrom
-    };
-  }
 }
 
 /**
@@ -631,357 +525,6 @@ function toChannelUserListItem(user: ChannelUser): ChannelUserListItem {
 }
 
 /**
- * Reads one digital human's bound channel and whitelist state.
- *
- * @param digitalHumanId Target digital human identifier.
- * @returns Bound channel type, OpenClaw channel key, account id and whitelist.
- */
-async function readDigitalHumanChannelScope(
-  digitalHumanId: string
-): Promise<{
-  channelType: ChannelUserType;
-  channelKey: "feishu" | "dingtalk";
-  accountId: string;
-  allowFrom: Set<string> | "*";
-}> {
-  const config = await readOpenClawConfig();
-  const bindings = Array.isArray(config.bindings) ? config.bindings : [];
-  const binding = bindings.find((entry) => {
-    if (typeof entry !== "object" || entry === null) {
-      return false;
-    }
-    const record = entry as Record<string, unknown>;
-    return record.agentId === digitalHumanId;
-  });
-
-  if (binding === undefined) {
-    throw new HttpError(404, `Digital human channel binding not found: ${digitalHumanId}`);
-  }
-
-  const match = (binding as Record<string, unknown>).match;
-  if (typeof match !== "object" || match === null) {
-    throw new HttpError(404, `Digital human channel binding not found: ${digitalHumanId}`);
-  }
-
-  const rawChannel = (match as Record<string, unknown>).channel;
-  if (rawChannel !== "feishu" && rawChannel !== "dingtalk") {
-    throw new HttpError(404, `Digital human channel binding not found: ${digitalHumanId}`);
-  }
-  const channelKey = rawChannel;
-  const channelType: ChannelUserType = channelKey === "dingtalk" ? "dingding" : "feishu";
-  const rawAccountId = (match as Record<string, unknown>).accountId;
-  const accountId = normalizeOpenClawAccountIdFromAppId(
-    typeof rawAccountId === "string" ? rawAccountId : ""
-  );
-
-  const account = readChannelAccount(config, channelKey, accountId);
-  const allowFromRaw = account.allowFrom;
-  if (Array.isArray(allowFromRaw) && allowFromRaw.some((item) => item === "*")) {
-    return {
-      channelType,
-      channelKey,
-      accountId,
-      allowFrom: "*"
-    };
-  }
-
-  const allowFrom = new Set(
-    Array.isArray(allowFromRaw)
-      ? allowFromRaw.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      : []
-  );
-
-  return {
-    channelType,
-    channelKey,
-    accountId,
-    allowFrom
-  };
-}
-
-/**
- * Reads the local OpenClaw config file.
- *
- * @returns Parsed config object.
- */
-async function readOpenClawConfig(): Promise<Record<string, unknown>> {
-  const configPath = resolveOpenClawConfigPath();
-  try {
-    const raw = await readFile(configPath, "utf-8");
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Applies an OpenClaw config mutation and persists it through `config.patch`, falling back
- * to the local file when the gateway rejects the patch.
- *
- * @param mutate Mutation callback.
- * @param openClawAgentsAdapter Gateway adapter.
- */
-async function rewriteOpenClawConfig(
-  mutate: (config: Record<string, unknown>) => Promise<void> | void,
-  openClawAgentsAdapter: OpenClawAgentsAdapter
-): Promise<void> {
-  const configPath = resolveOpenClawConfigPath();
-  let baseConfig = await readOpenClawConfig();
-  await mutate(baseConfig);
-
-  try {
-    const current = await openClawAgentsAdapter.getConfig();
-    const parsed = safeParseObject(current.raw);
-    if (parsed !== undefined) {
-      baseConfig = parsed;
-      await mutate(baseConfig);
-    }
-
-    await openClawAgentsAdapter.patchConfig({
-      raw: JSON.stringify(baseConfig),
-      baseHash: current.hash
-    });
-    return;
-  } catch {
-    await writeFile(configPath, `${JSON.stringify(baseConfig, null, 2)}\n`, "utf-8");
-  }
-}
-
-/**
- * Reads one account object from the config root.
- *
- * @param config Parsed config root.
- * @param channelKey OpenClaw channel key.
- * @param accountId Normalized OpenClaw account id.
- * @returns Mutable account object.
- */
-function readChannelAccount(
-  config: Record<string, unknown>,
-  channelKey: "feishu" | "dingtalk",
-  accountId: string
-): Record<string, unknown> {
-  const channels = typeof config.channels === "object" && config.channels !== null
-    ? config.channels as Record<string, unknown>
-    : {};
-  const channelBlock = typeof channels[channelKey] === "object" && channels[channelKey] !== null
-    ? channels[channelKey] as Record<string, unknown>
-    : {};
-  const accounts = typeof channelBlock.accounts === "object" && channelBlock.accounts !== null
-    ? channelBlock.accounts as Record<string, unknown>
-    : {};
-  const account = typeof accounts[accountId] === "object" && accounts[accountId] !== null
-    ? accounts[accountId] as Record<string, unknown>
-    : undefined;
-
-  if (account === undefined) {
-    throw new HttpError(404, `Digital human channel account not found: ${channelKey}/${accountId}`);
-  }
-
-  return account;
-}
-
-/**
- * Sets the exact `allowFrom` list for one digital human binding.
- *
- * @param config Parsed config root.
- * @param digitalHumanId Target digital human identifier.
- * @param channelKey OpenClaw channel key.
- * @param accountId Normalized account id.
- * @param allowFrom User ID whitelist to persist.
- */
-function setDigitalHumanAllowFrom(
-  config: Record<string, unknown>,
-  digitalHumanId: string,
-  channelKey: "feishu" | "dingtalk",
-  accountId: string,
-  allowFrom: string[]
-): void {
-  const bindings = Array.isArray(config.bindings) ? config.bindings : [];
-  const hasBinding = bindings.some((entry) => {
-    if (typeof entry !== "object" || entry === null) {
-      return false;
-    }
-    const record = entry as Record<string, unknown>;
-    if (record.agentId !== digitalHumanId) {
-      return false;
-    }
-    const match = typeof record.match === "object" && record.match !== null
-      ? record.match as Record<string, unknown>
-      : undefined;
-    if (match === undefined) {
-      return false;
-    }
-    return match.channel === channelKey
-      && normalizeOpenClawAccountIdFromAppId(typeof match.accountId === "string" ? match.accountId : "") === accountId;
-  });
-
-  if (!hasBinding) {
-    throw new HttpError(404, `Digital human channel binding not found: ${digitalHumanId}`);
-  }
-
-  const channels = typeof config.channels === "object" && config.channels !== null
-    ? config.channels as Record<string, unknown>
-    : {};
-  const channelBlock = typeof channels[channelKey] === "object" && channels[channelKey] !== null
-    ? channels[channelKey] as Record<string, unknown>
-    : {};
-  const accounts = typeof channelBlock.accounts === "object" && channelBlock.accounts !== null
-    ? channelBlock.accounts as Record<string, unknown>
-    : {};
-  const account = typeof accounts[accountId] === "object" && accounts[accountId] !== null
-    ? accounts[accountId] as Record<string, unknown>
-    : {};
-
-  accounts[accountId] = {
-    ...account,
-    allowFrom
-  };
-  channels[channelKey] = {
-    ...channelBlock,
-    accounts
-  };
-  config.channels = channels;
-}
-
-/**
- * Removes one User ID from all matching `allowFrom` arrays.
- *
- * @param config Parsed config root.
- * @param channelType Channel user type.
- * @param userId Removed User ID.
- */
-function removeAllowFromValue(
-  config: Record<string, unknown>,
-  channelType: ChannelUserType,
-  userId: string
-): void {
-  mutateAccountsForChannel(config, channelType, (account) => {
-    if (!Array.isArray(account.allowFrom)) {
-      return;
-    }
-    account.allowFrom = account.allowFrom.filter((item) => item !== userId);
-  });
-}
-
-/**
- * Replaces one User ID in `allowFrom` arrays when a channel user changes.
- *
- * @param config Parsed config root.
- * @param channelType Channel user type.
- * @param from Previous User ID.
- * @param to Replacement User ID.
- */
-function replaceAllowFromValue(
-  config: Record<string, unknown>,
-  channelType: ChannelUserType,
-  from: string,
-  to: string
-): void {
-  mutateAccountsForChannel(config, channelType, (account) => {
-    if (!Array.isArray(account.allowFrom)) {
-      return;
-    }
-    account.allowFrom = dedupeStrings(
-      account.allowFrom.map((item) => item === from ? to : item).filter(isNonEmptyString)
-    );
-  });
-}
-
-/**
- * Removes stale User IDs from all channel account whitelists.
- *
- * @param config Parsed config root.
- * @param userIdsByChannel Valid User ID sets grouped by channel user type.
- */
-function pruneAllowFromValues(
-  config: Record<string, unknown>,
-  userIdsByChannel: Map<ChannelUserType, Set<string>>
-): void {
-  mutateAccountsForChannel(config, "feishu", (account) => {
-    pruneAccountAllowFrom(account, userIdsByChannel.get("feishu") ?? new Set<string>());
-  });
-  mutateAccountsForChannel(config, "dingding", (account) => {
-    pruneAccountAllowFrom(account, userIdsByChannel.get("dingding") ?? new Set<string>());
-  });
-}
-
-/**
- * Prunes one account allowFrom list against valid User IDs.
- *
- * @param account Mutable account object.
- * @param validUserIds Valid User IDs for this channel.
- */
-function pruneAccountAllowFrom(account: Record<string, unknown>, validUserIds: Set<string>): void {
-  if (!Array.isArray(account.allowFrom) || account.allowFrom.some((item) => item === "*")) {
-    return;
-  }
-  account.allowFrom = account.allowFrom.filter(
-    (item): item is string => typeof item === "string" && validUserIds.has(item)
-  );
-}
-
-/**
- * Mutates every account block under one channel type.
- *
- * @param config Parsed config root.
- * @param channelType Channel user type.
- * @param mutate Account mutation callback.
- */
-function mutateAccountsForChannel(
-  config: Record<string, unknown>,
-  channelType: ChannelUserType,
-  mutate: (account: Record<string, unknown>) => void
-): void {
-  const channelKey = channelType === "dingding" ? "dingtalk" : "feishu";
-  const channels = typeof config.channels === "object" && config.channels !== null
-    ? config.channels as Record<string, unknown>
-    : {};
-  const channelBlock = typeof channels[channelKey] === "object" && channels[channelKey] !== null
-    ? channels[channelKey] as Record<string, unknown>
-    : undefined;
-  if (channelBlock === undefined) {
-    return;
-  }
-  const accounts = typeof channelBlock.accounts === "object" && channelBlock.accounts !== null
-    ? channelBlock.accounts as Record<string, unknown>
-    : undefined;
-  if (accounts === undefined) {
-    return;
-  }
-
-  for (const [accountId, value] of Object.entries(accounts)) {
-    if (typeof value !== "object" || value === null) {
-      continue;
-    }
-    const account = value as Record<string, unknown>;
-    mutate(account);
-    accounts[accountId] = account;
-  }
-
-  channelBlock.accounts = accounts;
-  channels[channelKey] = channelBlock;
-  config.channels = channels;
-}
-
-/**
- * Safely parses a JSON object string.
- *
- * @param raw Raw JSON text.
- * @returns Parsed object, when valid.
- */
-function safeParseObject(raw: string): Record<string, unknown> | undefined {
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
-/**
  * Normalizes the list pagination start parameter.
  *
  * @param start Raw start value.
@@ -1005,24 +548,4 @@ function normalizePageLimit(limit: number | undefined): number {
     return DEFAULT_PAGE_LIMIT;
   }
   return Math.min(MAX_PAGE_LIMIT, Math.floor(limit));
-}
-
-/**
- * Deduplicates a string array while preserving first occurrence order.
- *
- * @param values Candidate strings.
- * @returns Deduplicated strings.
- */
-function dedupeStrings(values: string[]): string[] {
-  return Array.from(new Set(values.filter(isNonEmptyString)));
-}
-
-/**
- * Narrows one unknown value to a non-empty string.
- *
- * @param value Candidate unknown value.
- * @returns Whether the value is a non-empty string.
- */
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
 }

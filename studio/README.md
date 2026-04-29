@@ -521,51 +521,6 @@ DIP 数字员工 Web 界面
 
 校验失败时会在错误详情中返回具体行号和原因；重复记录会明确提示为 `与前面记录重复：channel.user_id 已存在` 或 `与前面记录重复：displayName + channel.type 组合已存在`。
 
-#### 获取指定数字员工可 @ 的通道用户列表
-
-`GET /api/dip-studio/v1/digital-human/{id}/channel-users`
-
-路径参数：
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| id | string | 是 | 数字员工 ID |
-
-查询参数：
-
-| 参数 | 类型 | 说明 |
-| -- | -- | -- |
-| type | `"feishu" \| "dingding"` | 可选；按通道类型过滤 |
-| displayName | string | 可选；按显示名做不区分大小写的部分匹配过滤 |
-
-响应：`200 application/json`
-
-返回结构同 `GET /api/dip-studio/v1/channel-users`。
-
-#### 更新数字员工消息投递范围
-
-`PUT /api/dip-studio/v1/digital-human/{id}/channel-users`
-
-路径参数：
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| id | string | 是 | 数字员工 ID |
-
-请求体：`application/json`
-
-| 参数 | 类型 | 是否必填 | 说明 |
-| -- | -- | -- | -- |
-| allowFrom | string[] | 是 | 通道用户 User ID 列表 |
-
-响应：`200 application/json`
-
-| 参数 | 类型 | 说明 |
-| -- | -- | -- |
-| digitalHumanId | string | 数字员工 ID |
-| channelType | `"feishu" \| "dingding"` | 数字员工绑定的通道类型 |
-| allowFrom | string[] | 实际写入 OpenClaw `allowFrom` 的 User ID 列表 |
-
 #### 获取全局启用技能列表
 
 `GET /api/dip-studio/v1/skills`

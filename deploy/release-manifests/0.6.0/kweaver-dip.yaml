@@ -15,7 +15,7 @@ dependencies:
 releases:
   dip-data-migrator:
     chart: dip-data-migrator
-    version: 0.5.0-main.20260423.1.2f7545f
+    version: 0.6.0-main.20260430.2.2f7545f
     stage: pre
   business-system-service:
     chart: business-system-service
@@ -61,7 +61,7 @@ releases:
         publicEnabledModules: "store,studio"  # 允许值：store,studio（多个用英文逗号分隔）
   auth-service:
     chart: auth-service
-    version: 0.4.0-main.20260417.3
+    version: 0.4.0-main.20260430.2
   basic-search:
     chart: basic-search
     version: 0.4.0-main.20260331.1
@@ -94,7 +94,7 @@ releases:
     version: 0.4.0-main.20260416.2
   sailor-agent:
     chart: sailor-agent
-    version: 0.4.0-main.20260420.2
+    version: 0.4.0-main.20260430.1
   sailor-service:
     chart: sailor-service
     version: 0.4.1-main.20260417.1

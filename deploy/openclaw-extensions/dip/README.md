@@ -231,13 +231,13 @@ POST /v1/workspace/tmp/upload
 
 这是一个飞书消息推送 skill，当前文档要求：
 
-- 使用飞书开放平台机器人消息 API 向用户或群组推送消息
-- 支持通过 `open_id`、`union_id`、`user_id`、`email`、`chat_id` 定位接收者
+- 使用飞书开放平台机器人消息 API 向用户推送消息
+- 只支持通过 `user_id` 定位接收者
 - 默认支持文本消息，并说明 `post`、`image`、`file`、`interactive` 等飞书消息类型
 - 运行前需配置 `FEISHU_APP_ID` 与 `FEISHU_APP_SECRET`
-- 随 skill 附带 `send_text.py` 与 `send_text.sh` 两个文本消息发送 helper
+- 随 skill 附带 `send_text.js` 文本消息发送 helper
 
-注意：该 skill 通过飞书开放平台 HTTP API 工作；运行环境需要能访问 `open.feishu.cn`，并且 Python helper 需要可用的 `requests` 包。
+注意：该 skill 通过飞书开放平台 HTTP API 工作；运行环境需要能访问 `open.feishu.cn`，并且 NodeJS helper 需要 Node 18+ 运行环境。
 
 ## 安装与启用
 

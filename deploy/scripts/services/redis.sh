@@ -13,6 +13,7 @@ install_redis() {
 install_redis_sentinel_local() {
     local ns="${REDIS_NAMESPACE}"
     local redis_release_name="redis"
+    local redis_chart_name="proton-redis"
 
     local chart_ref=""
     if [[ -f "${REDIS_CHART_TGZ}" ]]; then
@@ -29,8 +30,11 @@ install_redis_sentinel_local() {
     local fresh_install="true"
     if is_helm_installed "${redis_release_name}" "${ns}"; then
         fresh_install="false"
-        log_info "Redis is already installed. Skipping installation."
-        return 0
+        if should_skip_upgrade_same_chart_version "${redis_release_name}" "${ns}" "${redis_chart_name}" "${REDIS_CHART_VERSION}"; then
+            log_info "Redis is already installed and target chart version is unchanged. Skipping installation."
+            return 0
+        fi
+        log_info "Redis is already installed. Upgrading to target chart version ${REDIS_CHART_VERSION}."
     fi
     log_info "Installing Redis in sentinel mode using proton-redis chart..."
 
@@ -45,10 +49,12 @@ install_redis_sentinel_local() {
     fi
 
     local redis_password="${REDIS_PASSWORD}"
-    if [[ -z "${redis_password}" ]]; then
+    if [[ "${fresh_install}" == "true" && -z "${redis_password}" ]]; then
         redis_password="$(generate_random_password 10)"
     fi
-    REDIS_PASSWORD="${redis_password}"
+    if [[ -n "${redis_password}" ]]; then
+        REDIS_PASSWORD="${redis_password}"
+    fi
 
     # Prepare Helm values according to user's specification
     local -a helm_args
@@ -61,11 +67,7 @@ install_redis_sentinel_local() {
         --set image.registry="${image_registry}"
         --set namespace="${ns}"
         --set redis.masterGroupName="${REDIS_MASTER_GROUP_NAME:-mymaster}"
-        --set redis.rootPassword="${redis_password}"
-        --set redis.password="${redis_password}"
-        --set sentinel.password="${redis_password}"
         --set redis.monitorUser="monitor-user"
-        --set redis.monitorPassword="${redis_password}"
         --set redis.rootUsername=root
         --set replicaCount="${REDIS_REPLICA_COUNT:-1}"
         --set service.enableDualStack=false
@@ -73,6 +75,19 @@ install_redis_sentinel_local() {
         --set storage.storageClassName=local-path
         --wait --timeout=600s
     )
+
+    if [[ "${fresh_install}" != "true" ]]; then
+        helm_args+=(--reuse-values)
+    fi
+
+    if [[ -n "${redis_password}" ]]; then
+        helm_args+=(
+            --set redis.rootPassword="${redis_password}"
+            --set redis.password="${redis_password}"
+            --set sentinel.password="${redis_password}"
+            --set redis.monitorPassword="${redis_password}"
+        )
+    fi
 
     # Set image repository and tag if provided
     if [[ -n "${REDIS_IMAGE_REPOSITORY}" ]]; then
@@ -114,7 +129,11 @@ install_redis_sentinel_local() {
     log_info "  Sentinel Host: redis-sentinel.${ns}.svc.cluster.local"
     log_info "  Sentinel Port: 26379"
     log_info "  Master Group: ${REDIS_MASTER_GROUP_NAME:-mymaster}"
-    log_info "  Password: ${redis_password}"
+    if [[ -n "${redis_password}" ]]; then
+        log_info "  Password: ${redis_password}"
+    else
+        log_info "  Password: reused from existing release values"
+    fi
     log_info "  Replicas: ${REDIS_REPLICA_COUNT:-1}"
 
     if [[ "${fresh_install}" == "true" && "${AUTO_GENERATE_CONFIG}" == "true" ]]; then

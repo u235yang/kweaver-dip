@@ -52,10 +52,10 @@ releases:
     version: 0.5.0-main.git-84bea21
   anyfabric-frontend:
     chart: anyfabric-frontend
-    version: 0.6.0-main.20260430.2
+    version: 0.6.0-main.20260430.3
   dip-frontend:
     chart: dip-frontend
-    version: 0.5.0-main.5ba829f
+    version: 0.6.0-82198b9.1804257
     values:
       runtimeEnv:
         publicEnabledModules: "store,studio"  # 允许值：store,studio（多个用英文逗号分隔）
@@ -112,7 +112,7 @@ releases:
     version: 0.5.0
   dip-studio:
     chart: dip-studio
-    version: 0.5.0-main.1bc3bb01
+    version: 0.6.0-release-0.6.0.c7c8ddde
     values:
       studio:
         envFileHostPath: /root/.env         # 环境变量配置主机路径，例如：/root/.env。文件不存在时会自动创建。

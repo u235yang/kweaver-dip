@@ -3,6 +3,7 @@
 | 项 | 内容 |
 |----|------|
 | **Issue** | [kweaver-ai/kweaver-dip#167](https://github.com/kweaver-ai/kweaver-dip/issues/167) |
+| **文档路径** | `design/feature/studio/issue-167-pinned-digital-humans-sidebar.md` |
 | **文档类型** | 逻辑设计（Logic Design），用于评审与实现对照 |
 | **状态** | 评审稿 |
 | **范围** | DIP Web（`web/apps/dip`）Studio 侧栏交互 + dip-hub 用户偏好持久化；**本文不写具体代码与文件级改动清单**。 |
@@ -193,4 +194,5 @@
 | 日期 | 说明 |
 |------|------|
 | 2026-05-06 | 初版 + 持久化定稿后合并 API/表结构要点 |
+| 2026-05-06 | 文档迁至 `design/feature/studio/issue-167-pinned-digital-humans-sidebar.md` |
 | （后续） | 评审意见填入此行 |

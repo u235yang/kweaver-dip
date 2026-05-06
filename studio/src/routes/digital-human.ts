@@ -76,6 +76,7 @@ const UPDATE_KEYS = [
   "soul",
   "skills",
   "bkn",
+  "kweaver_token",
   "channel"
 ] as const;
 
@@ -99,7 +100,7 @@ function parseUpdateRequest(body: unknown): UpdateDigitalHumanRequest {
   if (!hasAny) {
     throw new HttpError(
       400,
-      "At least one of name, creature, icon_id, soul, skills, bkn, or channel must be provided"
+      "At least one of name, creature, icon_id, soul, skills, bkn, kweaver_token, or channel must be provided"
     );
   }
 
@@ -152,6 +153,10 @@ function parseUpdateRequest(body: unknown): UpdateDigitalHumanRequest {
     }
   }
 
+  if ("kweaver_token" in raw) {
+    patch.kweaver_token = parseKweaverTokenPatch(raw.kweaver_token);
+  }
+
   if ("channel" in raw) {
     patch.channel = parseChannelBlock(raw.channel);
   }
@@ -188,6 +193,7 @@ function parseCreateRequest(body: unknown): CreateDigitalHumanRequest {
     soul: parseOptionalString(raw.soul),
     skills: parseStringArray(raw.skills),
     bkn: parseBknArray(raw.bkn),
+    kweaver_token: parseKweaverTokenCreate(raw.kweaver_token),
     channel: parseChannelBlock(raw.channel)
   };
 }
@@ -517,6 +523,48 @@ function parseChannelBlock(value: unknown): ChannelConfig | undefined {
   }
 
   return type !== undefined ? { type, appId, appSecret } : { appId, appSecret };
+}
+
+/**
+ * Parses the optional create-time KWeaver token.
+ *
+ * @param value Raw request body field.
+ * @returns A trimmed token when provided, otherwise `undefined`.
+ * @throws HttpError when the field type is invalid.
+ */
+function parseKweaverTokenCreate(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new HttpError(400, "kweaver_token must be a string when provided");
+  }
+  const trimmed = value.trim();
+  if (/[\r\n]/.test(trimmed)) {
+    throw new HttpError(400, "kweaver_token must not contain line breaks");
+  }
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * Parses update-time KWeaver token semantics.
+ *
+ * @param value Raw request body field.
+ * @returns A trimmed token, or `null` when the client requests deletion.
+ * @throws HttpError when the field type is invalid.
+ */
+function parseKweaverTokenPatch(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new HttpError(400, "kweaver_token must be a string or null when provided");
+  }
+  const trimmed = value.trim();
+  if (/[\r\n]/.test(trimmed)) {
+    throw new HttpError(400, "kweaver_token must not contain line breaks");
+  }
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /**

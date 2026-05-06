@@ -20,6 +20,10 @@ import type {
 import type { OpenClawConfigGetResult } from "../types/openclaw";
 import type { OpenClawCronJob } from "../types/plan";
 import { normalizeCreateDigitalHumanSkills } from "../utils/skills";
+import {
+  resolveOpenClawWorkspacePath,
+  updateWorkspaceSecret
+} from "../utils/workspace-secret";
 import type { AgentSkillsLogic } from "./agent-skills";
 import {
   buildTemplate,
@@ -32,6 +36,7 @@ import {
 
 const HIDDEN_DIGITAL_HUMAN_IDS = new Set(["main", "__internal_skill_agent__"]);
 const DIGITAL_HUMAN_CRON_SCAN_LIMIT = 200;
+const KWEAVER_TOKEN_KEY = "KWEAVER_TOKEN";
 
 /**
  * Application logic used to manage digital humans.
@@ -221,6 +226,13 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
 
     await this.writeTemplateViaOpenClawFilesRpc(id, template);
 
+    if (request.kweaver_token !== undefined) {
+      const token = request.kweaver_token;
+      await updateWorkspaceSecret(id, (content) =>
+        mergeKweaverTokenSecret(content, token)
+      );
+    }
+
     const skills = normalizeCreateDigitalHumanSkills(request.skills);
     await this.agentSkillsLogic.updateAgentSkills(id, skills);
 
@@ -310,8 +322,18 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
 
     const current = mergeFilesToTemplate(identityContent, soulContent);
     const merged = mergeTemplatePatch(current, patch);
+    if (patch.kweaver_token === null) {
+      merged.bkn = [];
+    }
 
     await this.writeTemplateViaOpenClawFilesRpc(id, merged);
+
+    if (patch.kweaver_token !== undefined) {
+      const token = patch.kweaver_token;
+      await updateWorkspaceSecret(id, (content) =>
+        mergeKweaverTokenSecret(content, token)
+      );
+    }
 
     let skillsOut: string[] | undefined;
     if (patch.skills !== undefined) {
@@ -462,7 +484,7 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
  * @returns The absolute path to the agent-specific workspace.
  */
 export function resolveDefaultWorkspace(uuid: string): string {
-  return join(homedir(), ".openclaw", "workspace", uuid);
+  return resolveOpenClawWorkspacePath(uuid);
 }
 
 /**
@@ -492,6 +514,32 @@ function toNotFoundIfAgentMissing(error: unknown, id: string): HttpError {
  */
 export function resolveOpenClawConfigPath(): string {
   return join(homedir(), ".openclaw", "openclaw.json");
+}
+
+/**
+ * Replaces KWeaver token entries while preserving unrelated SECRET lines.
+ *
+ * @param content Current SECRET file content.
+ * @param token Token to write, or `null` to remove the entry.
+ * @returns Updated SECRET file content.
+ */
+export function mergeKweaverTokenSecret(
+  content: string,
+  token: string | null
+): string {
+  const lines = content
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .filter((line) => {
+      const key = line.split(/[=:]/, 1)[0]?.trim();
+      return key !== KWEAVER_TOKEN_KEY && key !== "KWEAVER_TOEN";
+    });
+
+  if (token !== null) {
+    lines.push(`${KWEAVER_TOKEN_KEY}=${token}`);
+  }
+
+  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
 function resolveOpenClawChannelKey(channel: ChannelConfig): "feishu" | "dingtalk" {

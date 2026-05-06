@@ -24,9 +24,11 @@ vi.mock("node:os", async (importOriginal) => {
 
 import {
   DefaultDigitalHumanLogic,
+  mergeKweaverTokenSecret,
   normalizeOpenClawAccountIdFromAppId,
   resolveDefaultWorkspace
 } from "./digital-human";
+import { resolveWorkspaceSecretPath } from "../utils/workspace-secret";
 
 function stubAgentSkills(overrides?: Partial<AgentSkillsLogic>): AgentSkillsLogic {
   return {
@@ -68,6 +70,16 @@ function stubCronAdapter(
 }
 
 describe("DefaultDigitalHumanLogic", () => {
+  it("mergeKweaverTokenSecret preserves unrelated lines and removes token aliases", () => {
+    expect(
+      mergeKweaverTokenSecret(
+        "OTHER=value\nKWEAVER_TOEN=typo\nKWEAVER_TOKEN=old\n",
+        "new"
+      )
+    ).toBe("OTHER=value\nKWEAVER_TOKEN=new\n");
+    expect(mergeKweaverTokenSecret("KWEAVER_TOKEN=old\n", null)).toBe("");
+  });
+
   it("fetches agents and enriches list with full detail fields", async () => {
     const openClawAgentsAdapter = {
       listAgents: vi.fn().mockResolvedValue({
@@ -910,6 +922,44 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     ]);
   });
 
+  it("createDigitalHuman writes KWeaver token to SECRET when provided", async () => {
+    const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
+    const getAgentFile = vi.fn();
+    const secretPath = resolveWorkspaceSecretPath("agent-secret");
+    mkdirSync(resolveDefaultWorkspace("agent-secret"), { recursive: true });
+    writeFileSync(secretPath, "OTHER=value\nKWEAVER_TOEN=old\n", "utf8");
+    const logic = new DefaultDigitalHumanLogic({
+      openClawAgentsAdapter: {
+        listAgents: vi.fn(),
+        createAgent: vi.fn().mockResolvedValue({ ok: true }),
+        deleteAgent: vi.fn(),
+        getAgentFile,
+        setAgentFile,
+        listAgentFiles: vi.fn().mockResolvedValue({ agentId: "", files: [] }),
+        getConfig: vi.fn(),
+        patchConfig: vi.fn()
+      } as never,
+      openClawCronAdapter: stubCronAdapter(),
+      agentSkillsLogic: stubAgentSkills()
+    });
+
+    const result = await logic.createDigitalHuman({
+      id: "agent-secret",
+      name: "Secret",
+      kweaver_token: "kw-token"
+    });
+
+    expect(getAgentFile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SECRET" })
+    );
+    expect(setAgentFile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SECRET" })
+    );
+    expect(readFileSync(secretPath, "utf8")).toBe(
+      "OTHER=value\nKWEAVER_TOKEN=kw-token\n"
+    );
+  });
+
   it("createDigitalHuman uses the provided id instead of generating a uuid", async () => {
     const randomUuidSpy = vi.spyOn(globalThis.crypto, "randomUUID");
     const createAgent = vi.fn().mockResolvedValue({ ok: true });
@@ -1135,6 +1185,89 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         agentId: id,
         name: "TOOLS.md",
         content: expect.stringContaining("## 投递通道消息") as string
+      })
+    );
+  });
+
+  it("updateDigitalHuman replaces KWeaver token without changing BKN", async () => {
+    const id = "agent-token";
+    const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
+    const secretPath = resolveWorkspaceSecretPath(id);
+    mkdirSync(resolveDefaultWorkspace(id), { recursive: true });
+    writeFileSync(secretPath, "KWEAVER_TOKEN=old\n", "utf8");
+    const logic = new DefaultDigitalHumanLogic({
+      openClawAgentsAdapter: {
+        listAgents: vi.fn(),
+        createAgent: vi.fn(),
+        deleteAgent: vi.fn(),
+        getAgentFile: vi.fn().mockImplementation(async ({ name }: { name: string }) => ({
+          file: {
+            content: name === "IDENTITY.md"
+              ? "- Name: Old\n"
+              : "## 业务知识网络\n> | 名称 | 地址 |\n> |------|------|\n> | K | kn-1 |\n"
+          }
+        })),
+        setAgentFile,
+        listAgentFiles: vi.fn().mockResolvedValue({ agentId: id, files: [] }),
+        getConfig: vi.fn(),
+        patchConfig: vi.fn()
+      } as never,
+      openClawCronAdapter: stubCronAdapter(),
+      agentSkillsLogic: stubAgentSkills()
+    });
+
+    const result = await logic.updateDigitalHuman(id, {
+      kweaver_token: "new-token"
+    });
+
+    expect(result.bkn).toEqual([{ name: "K", url: "kn-1" }]);
+    expect(setAgentFile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SECRET" })
+    );
+    expect(readFileSync(secretPath, "utf8")).toBe("KWEAVER_TOKEN=new-token\n");
+  });
+
+  it("updateDigitalHuman removes KWeaver token and clears BKN", async () => {
+    const id = "agent-token-delete";
+    const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
+    const secretPath = resolveWorkspaceSecretPath(id);
+    mkdirSync(resolveDefaultWorkspace(id), { recursive: true });
+    writeFileSync(secretPath, "OTHER=value\nKWEAVER_TOKEN=old\n", "utf8");
+    const logic = new DefaultDigitalHumanLogic({
+      openClawAgentsAdapter: {
+        listAgents: vi.fn(),
+        createAgent: vi.fn(),
+        deleteAgent: vi.fn(),
+        getAgentFile: vi.fn().mockImplementation(async ({ name }: { name: string }) => ({
+          file: {
+            content: name === "IDENTITY.md"
+              ? "- Name: Old\n"
+              : "## 业务知识网络\n> | 名称 | 地址 |\n> |------|------|\n> | K | kn-1 |\n"
+          }
+        })),
+        setAgentFile,
+        listAgentFiles: vi.fn().mockResolvedValue({ agentId: id, files: [] }),
+        getConfig: vi.fn(),
+        patchConfig: vi.fn()
+      } as never,
+      openClawCronAdapter: stubCronAdapter(),
+      agentSkillsLogic: stubAgentSkills()
+    });
+
+    const result = await logic.updateDigitalHuman(id, {
+      bkn: [{ name: "Ignored", url: "kn-2" }],
+      kweaver_token: null
+    });
+
+    expect(result.bkn).toEqual([]);
+    expect(setAgentFile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SECRET" })
+    );
+    expect(readFileSync(secretPath, "utf8")).toBe("OTHER=value\n");
+    expect(setAgentFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "SOUL.md",
+        content: expect.not.stringContaining("kn-2") as string
       })
     );
   });

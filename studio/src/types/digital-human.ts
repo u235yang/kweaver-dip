@@ -255,6 +255,12 @@ export interface CreateDigitalHumanRequest {
   bkn?: BknEntry[];
 
   /**
+   * KWeaver application account token used by the digital human at runtime.
+   * Written to the workspace SECRET file and never returned by read APIs.
+   */
+  kweaver_token?: string;
+
+  /**
    * Channel binding configuration.
    */
   channel?: ChannelConfig;
@@ -385,6 +391,13 @@ export interface UpdateDigitalHumanRequest {
    * When present, replaces BKN entries stored in SOUL.md.
    */
   bkn?: BknEntry[];
+
+  /**
+   * KWeaver application account token update.
+   * A non-empty string writes/replaces the token; `null` or an empty string removes it.
+   * When removed, BKN entries are cleared.
+   */
+  kweaver_token?: string | null;
 
   /**
    * Channel binding (same semantics as create).

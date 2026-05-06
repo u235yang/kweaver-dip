@@ -161,6 +161,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BknEntry'
+        kweaver_token:
+          type: string
+          description: |
+            KWeaver 应用账号 Token。创建时若传入非空字符串，后端写入数字员工工作区 `SECRET` 文件中的 `KWEAVER_TOKEN=<token>`；该字段不会在详情或响应中回显。
         channel:
           $ref: '#/components/schemas/ChannelConfig'
       required:
@@ -203,8 +207,9 @@ components:
     UpdateDigitalHumanRequest:
       summary: 更新数字员工（部分字段）
       description: |
-        至少提供以下字段之一：`name`、`creature`、`icon_id`、`soul`、`skills`、`bkn`、`channel`（仅出现上述键之一即可，其他未知键不计入）。
+        至少提供以下字段之一：`name`、`creature`、`icon_id`、`soul`、`skills`、`bkn`、`kweaver_token`、`channel`（仅出现上述键之一即可，其他未知键不计入）。
         若 `skills` / `bkn` 出现在 body 中，表示**整组替换**（可为空数组以清空）。
+        `kweaver_token` 为非空字符串时写入/替换数字员工工作区 `SECRET` 文件中的 `KWEAVER_TOKEN=<token>`；为 `null` 或空字符串时删除该 Token，并清空已选择的 `bkn`。该字段不会在详情或响应中回显。
       type: object
       properties:
         name:
@@ -224,6 +229,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BknEntry'
+        kweaver_token:
+          type: string
+          nullable: true
+          description: 写入/替换或删除 KWeaver Token；删除时同步清空 bkn
         channel:
           $ref: '#/components/schemas/ChannelConfig'
 

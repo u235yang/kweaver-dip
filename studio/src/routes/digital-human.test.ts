@@ -777,6 +777,7 @@ describe("createDigitalHumanRouter", () => {
           soul: "s",
           skills: ["sk"],
           bkn: [{ name: "bn", url: "https://u" }],
+          kweaver_token: " kw-token ",
           channel: { type: "dingtalk", appId: "i", appSecret: "sec" }
         }
       } as Request,
@@ -792,6 +793,7 @@ describe("createDigitalHumanRouter", () => {
         soul: "s",
         skills: ["sk"],
         bkn: [{ name: "bn", url: "https://u" }],
+        kweaver_token: "kw-token",
         channel: { type: "dingtalk", appId: "i", appSecret: "sec" }
       })
     );
@@ -815,6 +817,7 @@ describe("createDigitalHumanRouter", () => {
           soul: "   ",
           skills: [" a ", "", 1],
           bkn: [],
+          kweaver_token: "   ",
           channel: { type: "   ", appId: "  app  ", appSecret: "  secret  " }
         }
       } as Request,
@@ -830,6 +833,7 @@ describe("createDigitalHumanRouter", () => {
       soul: undefined,
       skills: ["a"],
       bkn: undefined,
+      kweaver_token: undefined,
       channel: { appId: "app", appSecret: "secret" }
     });
   });
@@ -861,6 +865,66 @@ describe("createDigitalHumanRouter", () => {
       bkn: [{ name: "x", url: "https://y" }]
     });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("PUT forwards KWeaver token replacement and deletion patches", async () => {
+    const updateDigitalHuman = vi.fn().mockResolvedValue({ id: "i", name: "n", soul: "" });
+    const { createDigitalHumanRouter } = await importRouterWithLogicMock({
+      updateDigitalHuman
+    });
+    const router = createDigitalHumanRouter() as Router;
+    const handler = findHandler(router, "put", detailPath);
+
+    await handler?.(
+      {
+        params: { id: "i" },
+        body: { kweaver_token: "  token-1  " }
+      } as unknown as Request,
+      createResponseDouble(),
+      vi.fn<NextFunction>()
+    );
+    await handler?.(
+      {
+        params: { id: "i" },
+        body: { kweaver_token: null }
+      } as unknown as Request,
+      createResponseDouble(),
+      vi.fn<NextFunction>()
+    );
+
+    expect(updateDigitalHuman).toHaveBeenNthCalledWith(1, "i", {
+      kweaver_token: "token-1"
+    });
+    expect(updateDigitalHuman).toHaveBeenNthCalledWith(2, "i", {
+      kweaver_token: null
+    });
+  });
+
+  it("rejects KWeaver tokens with invalid type or line breaks", async () => {
+    const { createDigitalHumanRouter } = await importRouterWithLogicMock({});
+    const router = createDigitalHumanRouter() as Router;
+    const postHandler = findHandler(router, "post", listPath);
+    const putHandler = findHandler(router, "put", detailPath);
+    const next = vi.fn<NextFunction>();
+
+    await postHandler?.(
+      {
+        body: { name: "n", kweaver_token: 1 }
+      } as Request,
+      createResponseDouble(),
+      next
+    );
+    await putHandler?.(
+      {
+        params: { id: "i" },
+        body: { kweaver_token: "a\nb" }
+      } as unknown as Request,
+      createResponseDouble(),
+      next
+    );
+
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
   });
 
   it("PUT supports empty bkn arrays and optional trimmed fields", async () => {

@@ -1,0 +1,1421 @@
+openapi: 3.0.2
+
+info:
+  title: 账户管理服务公共 API
+  version: 1.0.0
+  description: ""
+
+servers:
+  - url: /api
+
+components: 
+  securitySchemes: 
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+security: 
+  - BearerAuth: []
+
+paths:
+  /user-management/v1/department-members/{department_id}/{fields}:
+    get:
+      tags:
+        - 组织架构查询
+      parameters:
+        - name: department_id
+          description: 部门ID,如果需要获取根部门，则传入00000000-0000-0000-0000-000000000000
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+          required: false
+        - name: fields
+          description: |-
+            获取成员信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - departments 子部门信息
+            - users 子用户信息
+
+            例如：
+            - departments,users     
+            (表示获取所有字段)  
+            - users   
+            (表示获取子用户信息)  
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `audit_admin` 审计管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+            - `org_audit` 组织审计员
+            - `normal_user` 普通用户
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - audit_admin
+              - sec_admin
+              - org_manager
+              - org_audit
+              - normal_user
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/DepMember
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 部门成员列举
+      description: 用于管理控制台和客户端弹窗
+  /user-management/v1/search-in-org-tree:
+    get:
+      tags:
+        - 组织架构查询
+      parameters:
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: keyword
+          description: 搜索内容
+          schema:
+            type: string
+          in: query
+          required: true
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `audit_admin` 审计管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+            - `org_audit` 组织审计员
+            - `normal_user` 普通用户
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - audit_admin
+              - sec_admin
+              - org_manager
+              - org_audit
+              - normal_user
+            type: string
+          in: query
+          required: true
+        - name: type
+          description: |-
+            搜索信息类型：
+            - `user` 搜索用户信息
+            - `department` 搜索部门信息
+
+            例如：   
+            - type=department&type=user  
+            (表示搜索用户和部门信息)   
+            - type=user   
+            (表示搜索用户信息)
+          schema:
+            type: array
+            items:
+              enum:
+                - user
+                - department
+              type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/MemberSearchInfos
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 搜索用户和部门信息
+  /user-management/v1/users/{user_ids}/{fields}:
+    get:
+      tags:
+        - 组织架构查询
+      parameters:
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `audit_admin` 审计管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+            - `org_audit` 组织审计员
+            - `normal_user` 普通用户
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - audit_admin
+              - sec_admin
+              - org_manager
+              - org_audit
+              - normal_user
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./user-management.schemas.yaml#/components/schemas/UserAllInfo
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 获取用户信息
+      description: 获取用户信息
+    parameters:
+      - name: fields
+        description: |-
+          获取用户信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+          - parent_dep_paths 父部门路径
+          - name 用户显示名
+          - account 用户账户名
+
+          例如：
+          - parent_dep_paths,name,account   
+          (表示获取所有字段)  
+          - name,account  
+          (表示获取用户显示名和用户账户名)  
+          - name  
+          (表示获取用户显示名)  
+        schema:
+          type: array
+          items:
+            type: string
+        in: path
+        required: true
+      - name: user_ids
+        description: 用户ID数组，用逗号分隔
+        schema:
+          type: array
+          items:
+            type: string
+        in: path
+        required: true
+  /api/user-management/v1/apps/{id}:
+    delete:
+      tags:
+        - 应用账户管理
+      parameters:
+        - name: id
+          description: 应用账户ID
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        "204":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond204
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 删除应用账户
+      description: 删除应用账户
+  /api/user-management/v1/apps/{id}/{fields}:
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/UpdateApp
+            examples:
+              UpdateAppAccount:
+                value:
+                  name: test
+                  password: some-secret
+      tags:
+        - 应用账户管理
+      parameters:
+        - name: id
+          description: 应用账户ID
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: fields
+          description: |+
+            修改字段名：(可任意组合，若修改多个字段以逗号间隔)
+            - name
+            - password
+
+            例如：
+            - name,password    
+            (表示修改所有字段，且所有字段变为必填)
+            - password                  
+            (表示只修改"password"字段，且这个字段变为必填)
+            - name                                              
+            (表示只修改"name"字段，且"name"字段变为必填)
+
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+      responses:
+        "204":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond204
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "409":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond409
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 更新应用账户
+      description: 更新应用账户
+  /user-management/v1/apps:
+    get:
+      tags:
+        - 应用账户管理
+      parameters:
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: direction
+          description: |
+            排序结果方向，默认为降序
+            - `asc` 升序
+            - `desc` 降序
+          schema:
+            enum:
+              - desc
+              - asc
+            type: string
+          in: query
+        - name: sort
+          description: |
+            排序类型，默认为创建时间
+            - `date_created` 按照创建时间排序
+            - `name` 按照应用账户名称排序
+          schema:
+            enum:
+              - date_created
+              - name
+            type: string
+          in: query
+        - name: keyword
+          description: 搜索内容。即应用账户名。输入则返回该账户名模糊匹配的所有记录。不输入返回应用账户列表所有记录。
+          schema:
+            type: string
+          in: query
+          required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/AppList
+          description: 接口调用成功
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 获取应用账户列表
+      description: 获取应用账户列表
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/CreateGeneralAccount
+            examples:
+              CreateGeneralAccount:
+                value:
+                  name: test
+                  password: some-secret
+        required: true
+      tags:
+        - 应用账户管理
+      responses:
+        "201":
+          headers:
+            Location:
+              schema:
+                format: uri
+                type: string
+              description: 获取应用账户 `/api/user-management/v1/apps/{id}`
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/CreateApp
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "409":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond409
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 通用应用账户注册
+      description: 通用应用账户注册
+  /user-management/v1/console/app-tokens:
+    post:
+      tags:
+        - 应用账户管理
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/CreateAppToken
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/AppTokenInfo
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 生成应用账户令牌
+      description: 生成应用账户令牌，管理员调用，与创建应用账户一致
+  /user-management/v1/management/users/{user_id}/{fields}:
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/UserModifyInfo
+      tags:
+        - 用户管理
+      parameters:
+        - name: user_id
+          description: 用户ID，用户唯一标识
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: fields
+          description: |-
+            修改用户信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - password 用户密码
+
+            例如：
+            - password
+            (表示修改用户密码)  
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+      responses:
+        "204":
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 修改用户信息
+  /user-management/v1/management/users/{user_id}:
+    patch:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                custom_attr:
+                  description: 用户自定义属性, 更新时相同key的值覆盖, 不同key的值新增, 接口调用方传参需要保证key的路径唯一(防止出现调用方的数据互相覆盖的情况)
+                  type: object
+                  additionalProperties: true
+      tags:
+        - 用户管理
+      parameters:
+        - name: user_id
+          description: 用户ID，用户唯一标识
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        "204":
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 增量修改用户信息
+  /user-management/v1/profile/{fields}:
+    get:
+      tags:
+        - 个人信息管理
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/Profile
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 获取个人信息
+    parameters:
+      - name: fields
+        description: |-
+          获取用户信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+          - avatar_url 用户头像url
+
+          例如：
+          - avatar_url  
+          (表示获取所有字段)  
+          - avatar_url  
+          (表示获取用户头像URL)  
+          - avatar_url  
+          (表示获取用户头像URL)  
+        in: path
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+  /user-management/v1/profile/avatar:
+    post:
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  format: binary
+                  description: 只能上传一个文件，大小不超过48k，需标识文件类型Content-type，例如image/jpeg、image/png
+                  type: string
+            examples:
+              pngExample:
+                value:
+                  avatar: "------WebKitFormBoundary7MA4YWxkTrZu0gW\r
+
+                    Content-Disposition: form-data; name=\"avatar\"; filename=\"1.png\"\r
+
+                    Content-Type: image/png\r
+
+                    \r
+
+                    [实际的PNG文件数据]\r
+
+                    ------WebKitFormBoundary7MA4YWxkTrZu0gW--"
+              jpegExample:
+                value:
+                  avatar: "------WebKitFormBoundary7MA4YWxkTrZu0gW\r
+
+                    Content-Disposition: form-data; name=\"avatar\"; filename=\"2.jpg\"\r
+
+                    Content-Type: image/jpeg\r
+
+                    \r
+
+                    [实际的JPEG文件数据]\r
+
+                    ------WebKitFormBoundary7MA4YWxkTrZu0gW--"
+      tags:
+        - 个人信息管理
+      responses:
+        "204":
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 更新个人头像
+  /user-management/v1/app-perms/{subject}/{objects}:
+    get:
+      tags:
+        - 应用账户权限
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./user-management.schemas.yaml#/components/schemas/AppPermInfo
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 获取应用账户权限
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ./user-management.schemas.yaml#/components/schemas/AppPermInfo
+      tags:
+        - 应用账户权限
+      responses:
+        "204":
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 设置应用账户权限
+    delete:
+      tags:
+        - 应用账户权限
+      responses:
+        "204":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond204
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 删除应用账户权限
+    parameters:
+      - name: subject
+        description: 主体对象，应用账户ID，应用账户唯一标识
+        schema:
+          type: string
+        in: path
+        required: true
+      - name: objects
+        description: |-
+          客体对象数组，不为空数组，组织架构类型
+          - user 用户
+          - department 部门
+          - group 用户组
+        schema:
+          type: array
+          items:
+            enum:
+              - user
+              - department
+              - group
+            type: string
+        in: path
+        required: true
+  /user-management/v1/avatars/{user_ids}:
+    get:
+      tags:
+        - 临时
+      parameters:
+        - name: user_ids
+          description: 用户ID数组
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./user-management.schemas.yaml#/components/schemas/AvatarInfo
+          description: 接口调用成功
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 批量获取用户头像
+  /eacp/v1/auth1/pwd-retrieval-vcode:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/SendVCodeInfo
+      tags:
+        - 用户管理
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/VCodeUUID
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 增加密码找回验证码
+  /user-management/v1/configs/{fields}:
+    get:
+      tags:
+        - 配置管理
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/ConfigInfo
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 获取配置
+      parameters:
+        - name: fields
+          description: |-
+            配置信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - `csf_level_enum` 密级枚举
+            - `csf_level2_enum` 密级2枚举
+            - `show_csf_level2` 前端显示密级2字段标识
+
+            例如：
+            - csf_level_enum,csf_level2_enum,show_csf_level2     
+            (表示所有字段)  
+            - csf_level_enum   
+            (标识密级枚举信息名称)  
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+  /user-management/v1/management/configs/{fields}:
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./user-management.schemas.yaml#/components/schemas/Config
+      tags:
+        - 配置管理
+      responses:
+        "204":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond204
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "409":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 更新配置
+    parameters:
+      - name: fields
+        description: |-
+          配置信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+          - `default_user_pwd` 用户初始密码
+          - `csf_level_enum` 密级枚举
+          - `csf_level2_enum` 密级2枚举
+
+          例如：
+          - default_user_pwd,csf_level_enum,csf_level2_enum     
+          (表示所有字段)  
+          - default_user_pwd   
+          (标识用户初始密码信息名称)  
+          - csf_level_enum   
+          (标识更新密级枚举信息名称)  
+          - csf_level2_enum   
+          (标识更新密级2枚举信息名称)  
+        schema:
+          type: array
+          items:
+            type: string
+        in: path
+        required: true
+  /user-management/v1/management/default-pwd-valid:
+    get:
+      tags:
+        - 配置管理
+      parameters:
+        - name: password
+          description: 用户初始密码，rsa2048+base64加密
+          schema:
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/Result
+          description: 返回格式检查结果
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 用户初始密码格式检查
+  /user-management/v1/management/department-members/{department_id}/{fields}:
+    get:
+      tags:
+        - 组织架构管理
+      parameters:
+        - name: department_id
+          description: 部门ID,如果需要获取根部门，则传入00000000-0000-0000-0000-000000000000
+          schema:
+            type: string
+          in: path
+          required: true
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+          required: false
+        - name: fields
+          description: |-
+            获取成员信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - departments 子部门信息
+
+            例如：
+            - departments     
+            (表示获取所有字段)  
+            - departments   
+            (表示获取子部门信息)  
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - sec_admin
+              - org_manager
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/ConsoleDepMember
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 管理控制台-部门成员列举
+      description: 用于管理控制台主界面
+  /user-management/v1/management/departments/{id}:
+    delete:
+      tags:
+        - 部门管理
+      parameters:
+        - name: id
+          description: 部门ID，部门唯一标识
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        "204":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond204
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "404":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond404
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 删除部门
+  /user-management/v1/console/search-in-org-tree:
+    get:
+      tags:
+        - 组织架构查询
+      parameters:
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: keyword
+          description: 搜索内容
+          schema:
+            type: string
+          in: query
+          required: true
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `audit_admin` 审计管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+            - `org_audit` 组织审计员
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - audit_admin
+              - sec_admin
+              - org_manager
+              - org_audit
+            type: string
+          in: query
+          required: true
+        - name: type
+          description: |-
+            搜索信息类型：
+            - `user` 搜索用户信息
+            - `department` 搜索部门信息
+
+            例如：   
+            - type=department&type=user  
+            (表示搜索用户和部门信息)   
+            - type=user   
+            (表示搜索用户信息)
+          schema:
+            type: array
+            items:
+              enum:
+                - user
+                - department
+              type: string
+          in: query
+          required: true
+        - name: user_enabled
+          description: 用户禁用状态筛选，只支持true，筛选符合条件且未被禁用的用户，如果不填，则返回所有符合条件的用户
+          schema:
+            type: boolean
+          in: query
+        - name: user_assigned
+          description: 用户被分配状态筛选，只支持true，筛选符合条件且已被分配的用户，如果不填，默认返回所有符合条件的用户
+          schema:
+            type: boolean
+          in: query
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/MemberSearchInfos
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 管理控制台-搜索用户和部门信息
+  /user-management/v1/console/group-members/{group_id}/user-match:
+    summary: 组
+    parameters:
+      - name: group_id
+        description: 组唯一标识
+        schema:
+          type: string
+        in: path
+        required: true
+    get:
+      tags:
+        - 组成员管理
+      parameters:
+        - name: name
+          description: |
+            用户显示名
+          schema:
+            type: string
+          required: true
+          in: query
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/GroupUserMatchInfo
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 组成员用户匹配
+      description: 管理控制台-支持部门成员下用户匹配
+  /user-management/v1/console/search-users-in-group:
+    summary: 组
+    get:
+      tags:
+        - 组成员管理
+      parameters:
+        - name: group_id
+          description: |
+            组ID
+          schema:
+            type: string
+          required: true
+          in: query
+        - name: key
+          description: |
+            搜索关键字
+          schema:
+            type: string
+          required: true
+          in: query
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+          required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/SearchUserInfos
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 组成员用户搜索
+      description: 管理控制台-组内根据显示名模糊搜索用户，支持部门成员下搜索
+  /user-management/v1/console/search-users/{fields}:
+    summary: 部门
+    get:
+      tags:
+        - 用户管理
+      parameters:
+        - name: department_id
+          description: |
+            部门ID，当ID为`-1`时代表未分配组，如果不传则为所有部门下搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: code
+          description: |
+            用户编码搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: name
+          description: |
+            显示名搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: account
+          description: |
+            登录名搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: manager_name
+          description: |
+            上级显示名搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: direct_department_code
+          description: |
+            上级部门编码搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: position
+          description: |
+            岗位搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+          required: false
+        - name: fields
+          description: |+
+            获取用户信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - account 登录名
+            - name 显示名
+            - remark 备注
+            - parent_deps 直属部门信息
+            - roles 用户角色
+            - csf_level用户密级
+            - auth_type 认证类型
+            - priority 优先级
+            - created_at创建时间
+            - enabled 禁用状态
+            - code 用户编码
+            - manager 直属上级
+            - position 岗位
+            - frozen 冻结状态
+
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `audit_admin` 审计管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+            - `org_audit` 组织审计员
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - audit_admin
+              - sec_admin
+              - org_manager
+              - org_audit
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/SearchDepartUserInfos
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "403":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond403
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 用户搜索
+      description: 管理控制台-模糊搜索用户，支持根据登录名、显示名、上级、用户编码、上级部门编码、岗位进行模糊搜索
+  /user-management/v1/console/search-departments/{fields}:
+    summary: 部门
+    get:
+      tags:
+        - 部门管理
+      parameters:
+        - name: code
+          description: |
+            部门编码搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: name
+          description: |
+            部门名搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: manager_name
+          description: |
+            负责人显示名搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: direct_department_code
+          description: |
+            上级部门编码搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: remark
+          description: |
+            备注搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: string
+          required: false
+          in: query
+        - name: enabled
+          description: |
+            状态搜索关键字，目前只支持按照一种关键字进行搜索
+          schema:
+            type: boolean
+          required: false
+          in: query
+        - name: fields
+          description: |+
+            获取部门信息字段名：(可任意组合，若获取多个字段以逗号相隔)
+            - name 部门名
+            - remark 备注
+            - manager 部门负责人
+            - enabled 状态
+            - code 编码
+            - parent_deps 父部门路径
+            - email 邮箱
+
+          schema:
+            type: array
+            items:
+              type: string
+          in: path
+          required: true
+        - name: offset
+          description: 获取数据起始下标
+          schema:
+            format: int64
+            default: 0
+            minimum: 0
+            type: integer
+          in: query
+        - name: limit
+          description: 获取数据量
+          schema:
+            format: int64
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+          in: query
+        - name: role
+          description: |-
+            用户角色，返回用户指定角色可见范围内信息
+            - `super_admin` 超级管理员
+            - `sys_admin` 系统管理员
+            - `sec_admin` 安全管理员
+            - `org_manager` 组织管理员
+          schema:
+            enum:
+              - super_admin
+              - sys_admin
+              - sec_admin
+              - org_manager
+            type: string
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./user-management.schemas.yaml#/components/schemas/SearchDepartInfos
+          description: 接口调用成功
+        "400":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond400
+        "401":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond401
+        "500":
+          $ref: ./user-management.schemas.yaml#/components/responses/Respond500
+      summary: 部门搜索
+      description: 管理控制台-模糊搜索部门，支持根据部门编码、部门名、负责人、上级部门编码、备注、状态进行模糊搜索

@@ -13,7 +13,7 @@ export interface DipChatKitAttachment {
 export interface DipChatKitPreviewPayload {
   title: string
   content: string
-  sourceType: 'card' | 'code' | 'mermaid' | 'text' | 'artifact'
+  sourceType: 'card' | 'code' | 'mermaid' | 'text' | 'artifact' | 'web'
   artifact?: {
     sessionKey: string
     subpath: string

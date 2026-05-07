@@ -167,12 +167,12 @@ export const buildArchiveGridPreviewPayload = (
   return {
     title:
       entryType === 'directory'
-        ? ((intl.get('dipChatKit.artifactDirectoryPreviewTitle', { fileName }).d(
-            `目录预览：${fileName}`,
-          ) as string))
-        : ((intl.get('dipChatKit.artifactPreviewTitle', { fileName }).d(
-            `文件预览：${fileName}`,
-          ) as string)),
+        ? (intl
+            .get('dipChatKit.artifactDirectoryPreviewTitle', { fileName })
+            .d(`目录预览：${fileName}`) as string)
+        : (intl
+            .get('dipChatKit.artifactPreviewTitle', { fileName })
+            .d(`文件预览：${fileName}`) as string),
     content: normalizedSubpath,
     sourceType: 'artifact',
     artifact: {
@@ -263,6 +263,46 @@ export const buildMarkdownFilePreviewPayload = (
     title: fileName || (intl.get('dipChatKit.markdownFile').d('Markdown file') as string),
     content: sourceContent || fileName || '',
     sourceType: 'text',
+  }
+}
+
+export const isPreviewableWebHref = (href: string): boolean => {
+  const normalizedHref = href.trim()
+  if (!normalizedHref) return false
+
+  try {
+    const url = new URL(normalizedHref)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const extractWebLinkTitleFromHref = (href: string): string => {
+  try {
+    const url = new URL(href)
+    const pathTail = url.pathname.split('/').filter(Boolean).pop() || ''
+    if (!pathTail) return url.hostname
+    return decodeURIComponent(pathTail)
+  } catch {
+    return href
+  }
+}
+
+export const buildWebLinkPreviewPayload = (
+  href: string,
+  displayText?: string,
+): DipChatKitPreviewPayload => {
+  const normalizedHref = href.trim()
+  const normalizedDisplayText = normalizeMarkdownText(displayText).trim()
+
+  return {
+    title:
+      normalizedDisplayText ||
+      extractWebLinkTitleFromHref(normalizedHref) ||
+      (intl.get('dipChatKit.webLinkPreview').d('网页预览') as string),
+    content: normalizedHref,
+    sourceType: 'web',
   }
 }
 

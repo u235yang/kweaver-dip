@@ -1,8 +1,14 @@
-import { CloseOutlined, FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons'
+import {
+  CloseOutlined,
+  ExportOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+} from '@ant-design/icons'
 import { Button, Tooltip } from 'antd'
 import clsx from 'clsx'
 import type React from 'react'
 import intl from 'react-intl-universal'
+import type { DipChatKitPreviewPayload } from '../../types'
 import ScrollContainer from '../ScrollContainer'
 import styles from './index.module.less'
 import PreviewArtifact from './PreviewArtifact'
@@ -10,7 +16,14 @@ import PreviewCode from './PreviewCode'
 import PreviewMarkdown from './PreviewMarkdown'
 import PreviewMermaid from './PreviewMermaid'
 import PreviewPlaceholder from './PreviewPlaceholder'
+import PreviewWebLink from './PreviewWebLink'
 import type { RightSideAreaProps } from './types'
+
+const NATIVE_SCROLL_PREVIEW_TYPES = new Set<DipChatKitPreviewPayload['sourceType']>(['web'])
+
+const shouldUseNativeScroll = (payload: DipChatKitPreviewPayload): boolean => {
+  return NATIVE_SCROLL_PREVIEW_TYPES.has(payload.sourceType)
+}
 
 const RightSideArea: React.FC<RightSideAreaProps> = ({
   visible,
@@ -19,6 +32,8 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({
   fullscreen,
   onToggleFullscreen,
 }) => {
+  const isWebPreview = payload?.sourceType === 'web'
+
   const renderGenericPreviewBody = () => {
     if (!payload) {
       return <PreviewPlaceholder />
@@ -36,7 +51,32 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({
       return <PreviewMermaid content={payload.content} />
     }
 
+    if (payload.sourceType === 'web') {
+      return <PreviewWebLink content={payload.content} title={payload.title} />
+    }
+
     return <PreviewMarkdown content={payload.content} />
+  }
+
+  const renderHeaderExtra = () => {
+    if (!(payload && isWebPreview)) return null
+
+    const url = payload.content.trim()
+    if (!url) return null
+
+    const openTitle = intl.get('dipChatKit.openWebLinkInNewTab').d('新标签页打开') as string
+    return (
+      <Tooltip title={openTitle}>
+        <Button
+          type="text"
+          aria-label={openTitle}
+          icon={<ExportOutlined />}
+          onClick={() => {
+            window.open(url, '_blank', 'noopener,noreferrer')
+          }}
+        />
+      </Tooltip>
+    )
   }
 
   const renderPreviewContent = () => {
@@ -61,6 +101,7 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({
     const fullscreenTitle = fullscreen
       ? (intl.get('dipChatKit.exitFullscreenPreview').d('退出全屏') as string)
       : (intl.get('dipChatKit.fullscreenPreview').d('全屏预览') as string)
+    const previewBody = renderGenericPreviewBody()
 
     return (
       <div className={styles.panel}>
@@ -71,6 +112,7 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({
             </Tooltip>
           </div>
           <div className={styles.panelHeaderRight}>
+            {renderHeaderExtra()}
             <Tooltip title={fullscreenTitle}>
               <Button
                 type="text"
@@ -90,9 +132,11 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({
           </div>
         </div>
         <div className={styles.panelBody}>
-          <ScrollContainer className={styles.panelBodyScroll}>
-            {renderGenericPreviewBody()}
-          </ScrollContainer>
+          {shouldUseNativeScroll(payload) ? (
+            previewBody
+          ) : (
+            <ScrollContainer className={styles.panelBodyScroll}>{previewBody}</ScrollContainer>
+          )}
         </div>
       </div>
     )

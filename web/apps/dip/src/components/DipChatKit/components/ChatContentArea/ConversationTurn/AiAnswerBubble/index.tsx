@@ -22,12 +22,14 @@ import {
   buildCardPreviewPayload,
   buildMarkdownFilePreviewPayload,
   buildToolCardItems,
+  buildWebLinkPreviewPayload,
   extractArchiveArtifactsFromEvents,
   extractMarkdownFileNameFromHref,
   extractThinkingContent,
-  getDomDataAttributes,
   getArchivePreviewPayloadKey,
+  getDomDataAttributes,
   isMermaidLanguage,
+  isPreviewableWebHref,
   normalizeLanguage,
   normalizeMarkdownText,
 } from './utils'
@@ -519,7 +521,7 @@ const AiAnswerBubble: React.FC<AiAnswerBubbleProps> = ({
       const hrefText = normalizeMarkdownText(href)
       const fileName = extractMarkdownFileNameFromHref(hrefText)
 
-      if (!fileName) {
+      if (!(fileName || isPreviewableWebHref(hrefText))) {
         return (
           <a className={className} href={hrefText || undefined} target="_blank" rel="noreferrer">
             {children}
@@ -527,17 +529,35 @@ const AiAnswerBubble: React.FC<AiAnswerBubbleProps> = ({
         )
       }
 
-      const displayText = normalizeMarkdownText(children) || fileName
+      const displayText = normalizeMarkdownText(children) || fileName || hrefText
       return (
-        <button
-          type="button"
+        <a
           className={clsx(className, styles.markdownFileLink)}
-          onClick={() => {
-            openMarkdownFilePreview(fileName, hrefText || displayText)
+          href={hrefText || undefined}
+          onClick={(event) => {
+            if (
+              event.defaultPrevented ||
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            ) {
+              return
+            }
+
+            event.preventDefault()
+
+            if (fileName) {
+              openMarkdownFilePreview(fileName, hrefText || displayText)
+              return
+            }
+
+            onOpenPreview(buildWebLinkPreviewPayload(hrefText, displayText))
           }}
         >
           {displayText}
-        </button>
+        </a>
       )
     }
 

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildArchiveGridPreviewPayload, extractArchiveArtifactsFromEvents } from '../utils'
+import {
+  buildArchiveGridPreviewPayload,
+  buildWebLinkPreviewPayload,
+  extractArchiveArtifactsFromEvents,
+  isPreviewableWebHref,
+} from '../utils'
 
 vi.mock('react-intl-universal', () => ({
   default: {
@@ -105,6 +110,24 @@ describe('AiAnswerBubble/utils buildArchiveGridPreviewPayload', () => {
       subpath: 'PLAN.md',
       fileName: 'PLAN.md',
       entryType: 'file',
+    })
+  })
+})
+
+describe('AiAnswerBubble/utils web preview links', () => {
+  it('recognizes absolute http links and ignores non-web links', () => {
+    expect(isPreviewableWebHref('https://example.com/index.html')).toBe(true)
+    expect(isPreviewableWebHref('http://example.com/a/b/report.htm?version=1')).toBe(true)
+    expect(isPreviewableWebHref('http://localhost:3001/dip-hub/application/app-id')).toBe(true)
+    expect(isPreviewableWebHref('mailto:test@example.com')).toBe(false)
+    expect(isPreviewableWebHref('/local/report.html')).toBe(false)
+  })
+
+  it('builds web preview payload from a html link', () => {
+    expect(buildWebLinkPreviewPayload('https://example.com/index.html', 'HTML 测试页面')).toEqual({
+      title: 'HTML 测试页面',
+      content: 'https://example.com/index.html',
+      sourceType: 'web',
     })
   })
 })

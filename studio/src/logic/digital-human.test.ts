@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpError } from "../errors/http-error";
+import type { DigitalEmployeeTokenAdapter } from "../adapters/digital-employee-token-adapter";
 import type { OpenClawCronAdapter } from "../adapters/openclaw-cron-adapter";
 
 import type { AgentSkillsLogic } from "./agent-skills";
@@ -24,11 +25,21 @@ vi.mock("node:os", async (importOriginal) => {
 
 import {
   DefaultDigitalHumanLogic,
-  mergeKweaverTokenSecret,
   normalizeOpenClawAccountIdFromAppId,
   resolveDefaultWorkspace
 } from "./digital-human";
-import { resolveWorkspaceSecretPath } from "../utils/workspace-secret";
+
+function stubDigitalEmployeeTokenAdapter(
+  overrides?: Partial<DigitalEmployeeTokenAdapter>
+): DigitalEmployeeTokenAdapter {
+  return {
+    findKweaverToken: vi.fn(),
+    upsertKweaverToken: vi.fn().mockResolvedValue(undefined),
+    deleteKweaverToken: vi.fn().mockResolvedValue(undefined),
+    markDigitalEmployeeDeleted: vi.fn().mockResolvedValue(undefined),
+    ...overrides
+  };
+}
 
 function stubAgentSkills(overrides?: Partial<AgentSkillsLogic>): AgentSkillsLogic {
   return {
@@ -70,16 +81,6 @@ function stubCronAdapter(
 }
 
 describe("DefaultDigitalHumanLogic", () => {
-  it("mergeKweaverTokenSecret preserves unrelated lines and removes token aliases", () => {
-    expect(
-      mergeKweaverTokenSecret(
-        "OTHER=value\nKWEAVER_TOEN=typo\nKWEAVER_TOKEN=old\n",
-        "new"
-      )
-    ).toBe("OTHER=value\nKWEAVER_TOKEN=new\n");
-    expect(mergeKweaverTokenSecret("KWEAVER_TOKEN=old\n", null)).toBe("");
-  });
-
   it("fetches agents and enriches list with full detail fields", async () => {
     const openClawAgentsAdapter = {
       listAgents: vi.fn().mockResolvedValue({
@@ -686,6 +687,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
       nextOffset: null
     });
     const removeCronJob = vi.fn().mockResolvedValue({ removed: true });
+    const tokenAdapter = stubDigitalEmployeeTokenAdapter();
     const logic = new DefaultDigitalHumanLogic({
       openClawAgentsAdapter: {
         listAgents: vi.fn(),
@@ -701,7 +703,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         listCronJobs,
         removeCronJob
       }),
-      agentSkillsLogic: stubAgentSkills()
+      agentSkillsLogic: stubAgentSkills(),
+      digitalEmployeeTokenAdapter: tokenAdapter
     });
 
     await logic.deleteDigitalHuman("agent-1", false);
@@ -721,6 +724,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     expect(removeCronJob).toHaveBeenCalledTimes(2);
     expect(removeCronJob).toHaveBeenCalledWith({ id: "plan-1" });
     expect(removeCronJob).toHaveBeenCalledWith({ id: "plan-3" });
+    expect(tokenAdapter.markDigitalEmployeeDeleted).toHaveBeenCalledWith("agent-1");
   });
 
   it("deleteDigitalHuman defaults to keeping workspace files and scans all cron pages", async () => {
@@ -922,12 +926,10 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     ]);
   });
 
-  it("createDigitalHuman writes KWeaver token to SECRET when provided", async () => {
+  it("createDigitalHuman writes KWeaver token to the digital employee table", async () => {
     const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
     const getAgentFile = vi.fn();
-    const secretPath = resolveWorkspaceSecretPath("agent-secret");
-    mkdirSync(resolveDefaultWorkspace("agent-secret"), { recursive: true });
-    writeFileSync(secretPath, "OTHER=value\nKWEAVER_TOEN=old\n", "utf8");
+    const tokenAdapter = stubDigitalEmployeeTokenAdapter();
     const logic = new DefaultDigitalHumanLogic({
       openClawAgentsAdapter: {
         listAgents: vi.fn(),
@@ -940,7 +942,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         patchConfig: vi.fn()
       } as never,
       openClawCronAdapter: stubCronAdapter(),
-      agentSkillsLogic: stubAgentSkills()
+      agentSkillsLogic: stubAgentSkills(),
+      digitalEmployeeTokenAdapter: tokenAdapter
     });
 
     const result = await logic.createDigitalHuman({
@@ -955,9 +958,11 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     expect(setAgentFile).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: "SECRET" })
     );
-    expect(readFileSync(secretPath, "utf8")).toBe(
-      "OTHER=value\nKWEAVER_TOKEN=kw-token\n"
+    expect(tokenAdapter.upsertKweaverToken).toHaveBeenCalledWith(
+      "agent-secret",
+      "kw-token"
     );
+    expect(tokenAdapter.deleteKweaverToken).not.toHaveBeenCalled();
   });
 
   it("createDigitalHuman uses the provided id instead of generating a uuid", async () => {
@@ -1012,6 +1017,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
       agentId: "",
       skills: []
     });
+    const tokenAdapter = stubDigitalEmployeeTokenAdapter();
     const logic = new DefaultDigitalHumanLogic({
       openClawAgentsAdapter: {
         listAgents: vi.fn(),
@@ -1024,7 +1030,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         patchConfig: vi.fn()
       } as never,
       openClawCronAdapter: stubCronAdapter(),
-      agentSkillsLogic: stubAgentSkills({ updateAgentSkills })
+      agentSkillsLogic: stubAgentSkills({ updateAgentSkills }),
+      digitalEmployeeTokenAdapter: tokenAdapter
     });
 
     const result = await logic.createDigitalHuman({ name: "NoSkills" });
@@ -1039,6 +1046,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
       "schedule-plan",
       "kweaver-core"
     ]);
+    expect(tokenAdapter.upsertKweaverToken).toHaveBeenCalledWith(result.id, null);
   });
 
   it("createDigitalHuman deduplicates repeated request skill names", async () => {
@@ -1189,12 +1197,10 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     );
   });
 
-  it("updateDigitalHuman replaces KWeaver token without changing BKN", async () => {
+  it("updateDigitalHuman replaces KWeaver token in the database without changing BKN", async () => {
     const id = "agent-token";
     const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
-    const secretPath = resolveWorkspaceSecretPath(id);
-    mkdirSync(resolveDefaultWorkspace(id), { recursive: true });
-    writeFileSync(secretPath, "KWEAVER_TOKEN=old\n", "utf8");
+    const tokenAdapter = stubDigitalEmployeeTokenAdapter();
     const logic = new DefaultDigitalHumanLogic({
       openClawAgentsAdapter: {
         listAgents: vi.fn(),
@@ -1213,7 +1219,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         patchConfig: vi.fn()
       } as never,
       openClawCronAdapter: stubCronAdapter(),
-      agentSkillsLogic: stubAgentSkills()
+      agentSkillsLogic: stubAgentSkills(),
+      digitalEmployeeTokenAdapter: tokenAdapter
     });
 
     const result = await logic.updateDigitalHuman(id, {
@@ -1224,15 +1231,14 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     expect(setAgentFile).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: "SECRET" })
     );
-    expect(readFileSync(secretPath, "utf8")).toBe("KWEAVER_TOKEN=new-token\n");
+    expect(tokenAdapter.upsertKweaverToken).toHaveBeenCalledWith(id, "new-token");
+    expect(tokenAdapter.deleteKweaverToken).not.toHaveBeenCalled();
   });
 
-  it("updateDigitalHuman removes KWeaver token and clears BKN", async () => {
+  it("updateDigitalHuman removes KWeaver token from the database and clears BKN", async () => {
     const id = "agent-token-delete";
     const setAgentFile = vi.fn().mockResolvedValue({ ok: true });
-    const secretPath = resolveWorkspaceSecretPath(id);
-    mkdirSync(resolveDefaultWorkspace(id), { recursive: true });
-    writeFileSync(secretPath, "OTHER=value\nKWEAVER_TOKEN=old\n", "utf8");
+    const tokenAdapter = stubDigitalEmployeeTokenAdapter();
     const logic = new DefaultDigitalHumanLogic({
       openClawAgentsAdapter: {
         listAgents: vi.fn(),
@@ -1251,7 +1257,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
         patchConfig: vi.fn()
       } as never,
       openClawCronAdapter: stubCronAdapter(),
-      agentSkillsLogic: stubAgentSkills()
+      agentSkillsLogic: stubAgentSkills(),
+      digitalEmployeeTokenAdapter: tokenAdapter
     });
 
     const result = await logic.updateDigitalHuman(id, {
@@ -1263,7 +1270,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     expect(setAgentFile).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: "SECRET" })
     );
-    expect(readFileSync(secretPath, "utf8")).toBe("OTHER=value\n");
+    expect(tokenAdapter.deleteKweaverToken).toHaveBeenCalledWith(id);
+    expect(tokenAdapter.upsertKweaverToken).not.toHaveBeenCalled();
     expect(setAgentFile).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "SOUL.md",

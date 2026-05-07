@@ -256,7 +256,7 @@ export interface CreateDigitalHumanRequest {
 
   /**
    * KWeaver application account token used by the digital human at runtime.
-   * Written to the workspace SECRET file and never returned by read APIs.
+   * Written to `t_digital_employee.kweaver_token` and never returned by read APIs.
    */
   kweaver_token?: string;
 
@@ -394,7 +394,8 @@ export interface UpdateDigitalHumanRequest {
 
   /**
    * KWeaver application account token update.
-   * A non-empty string writes/replaces the token; `null` or an empty string removes it.
+   * A non-empty string writes/replaces `t_digital_employee.kweaver_token`;
+   * `null` or an empty string removes it.
    * When removed, BKN entries are cleared.
    */
   kweaver_token?: string | null;

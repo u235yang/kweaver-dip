@@ -1,15 +1,21 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 
+import { DefaultDigitalEmployeeTokenAdapter } from "../adapters/digital-employee-token-adapter";
 import {
   OpenClawAgentsGatewayAdapter,
 } from "../adapters/openclaw-agents-adapter";
 import { OpenClawCronGatewayAdapter } from "../adapters/openclaw-cron-adapter";
-import { getEnv, getOpenClawGatewayRuntimeConfig } from "../utils/env";
+import {
+  getEnv,
+  getOpenClawGatewayRuntimeConfig,
+  getStudioDatabaseConfig
+} from "../utils/env";
 import { HttpError } from "../errors/http-error";
 import {
   DefaultOpenClawAgentSkillsHttpClient
 } from "../infra/openclaw-agent-skills-http-client";
 import { OpenClawGatewayClient } from "../infra/openclaw-gateway-client";
+import { createStudioDatabasePool } from "../infra/mariadb-client";
 import {
   DefaultAgentSkillsLogic,
 } from "../logic/agent-skills";
@@ -29,7 +35,11 @@ import type {
   UpdateDigitalHumanRequest
 } from "../types/digital-human";
 
+const KWEAVER_TOKEN_MAX_LENGTH = 255;
 const env = getEnv();
+const digitalEmployeeTokenAdapter = new DefaultDigitalEmployeeTokenAdapter(
+  createStudioDatabasePool(getStudioDatabaseConfig())
+);
 const openClawAgentsAdapter = new OpenClawAgentsGatewayAdapter(
   OpenClawGatewayClient.getInstance({
     url: env.openClawGatewayUrl,
@@ -58,7 +68,8 @@ const openClawCronAdapter = new OpenClawCronGatewayAdapter(
 const digitalHumanLogic = new DefaultDigitalHumanLogic({
   openClawAgentsAdapter,
   openClawCronAdapter,
-  agentSkillsLogic
+  agentSkillsLogic,
+  digitalEmployeeTokenAdapter
 });
 const builtInDigitalHumanLogic = new DefaultBuiltInDigitalHumanLogic();
 
@@ -543,6 +554,9 @@ function parseKweaverTokenCreate(value: unknown): string | undefined {
   if (/[\r\n]/.test(trimmed)) {
     throw new HttpError(400, "kweaver_token must not contain line breaks");
   }
+  if (trimmed.length > KWEAVER_TOKEN_MAX_LENGTH) {
+    throw new HttpError(400, "kweaver_token must be at most 255 characters");
+  }
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
@@ -563,6 +577,9 @@ function parseKweaverTokenPatch(value: unknown): string | null {
   const trimmed = value.trim();
   if (/[\r\n]/.test(trimmed)) {
     throw new HttpError(400, "kweaver_token must not contain line breaks");
+  }
+  if (trimmed.length > KWEAVER_TOKEN_MAX_LENGTH) {
+    throw new HttpError(400, "kweaver_token must be at most 255 characters");
   }
   return trimmed.length > 0 ? trimmed : null;
 }

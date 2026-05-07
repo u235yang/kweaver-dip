@@ -900,7 +900,7 @@ describe("createDigitalHumanRouter", () => {
     });
   });
 
-  it("rejects KWeaver tokens with invalid type or line breaks", async () => {
+  it("rejects KWeaver tokens with invalid type, line breaks, or excessive length", async () => {
     const { createDigitalHumanRouter } = await importRouterWithLogicMock({});
     const router = createDigitalHumanRouter() as Router;
     const postHandler = findHandler(router, "post", listPath);
@@ -922,8 +922,15 @@ describe("createDigitalHumanRouter", () => {
       createResponseDouble(),
       next
     );
+    await postHandler?.(
+      {
+        body: { name: "n", kweaver_token: "x".repeat(256) }
+      } as Request,
+      createResponseDouble(),
+      next
+    );
 
-    expect(next).toHaveBeenCalledTimes(2);
+    expect(next).toHaveBeenCalledTimes(3);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
   });
 

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { DigitalEmployeeTokenAdapter } from "../adapters/digital-employee-token-adapter";
 import type { OpenClawAgentsAdapter } from "../adapters/openclaw-agents-adapter";
 import type { OpenClawCronAdapter } from "../adapters/openclaw-cron-adapter";
 import { HttpError } from "../errors/http-error";
@@ -20,10 +21,7 @@ import type {
 import type { OpenClawConfigGetResult } from "../types/openclaw";
 import type { OpenClawCronJob } from "../types/plan";
 import { normalizeCreateDigitalHumanSkills } from "../utils/skills";
-import {
-  resolveOpenClawWorkspacePath,
-  updateWorkspaceSecret
-} from "../utils/workspace-secret";
+import { resolveOpenClawWorkspacePath } from "../utils/workspace-secret";
 import type { AgentSkillsLogic } from "./agent-skills";
 import {
   buildTemplate,
@@ -36,7 +34,6 @@ import {
 
 const HIDDEN_DIGITAL_HUMAN_IDS = new Set(["main", "__internal_skill_agent__"]);
 const DIGITAL_HUMAN_CRON_SCAN_LIMIT = 200;
-const KWEAVER_TOKEN_KEY = "KWEAVER_TOKEN";
 
 /**
  * Application logic used to manage digital humans.
@@ -105,6 +102,11 @@ export interface DigitalHumanLogicOptions {
    * Logic used to read and replace per-agent skill bindings (dip skills API).
    */
   agentSkillsLogic: AgentSkillsLogic;
+
+  /**
+   * Adapter used to persist per-digital-employee KWeaver tokens.
+   */
+  digitalEmployeeTokenAdapter?: DigitalEmployeeTokenAdapter;
 }
 
 /**
@@ -114,6 +116,7 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
   private readonly openClawAgentsAdapter: OpenClawAgentsAdapter;
   private readonly openClawCronAdapter: OpenClawCronAdapter;
   private readonly agentSkillsLogic: AgentSkillsLogic;
+  private readonly digitalEmployeeTokenAdapter?: DigitalEmployeeTokenAdapter;
 
   /**
    * Creates the digital human logic.
@@ -124,6 +127,7 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
     this.openClawAgentsAdapter = options.openClawAgentsAdapter;
     this.openClawCronAdapter = options.openClawCronAdapter;
     this.agentSkillsLogic = options.agentSkillsLogic;
+    this.digitalEmployeeTokenAdapter = options.digitalEmployeeTokenAdapter;
   }
 
   /**
@@ -226,12 +230,10 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
 
     await this.writeTemplateViaOpenClawFilesRpc(id, template);
 
-    if (request.kweaver_token !== undefined) {
-      const token = request.kweaver_token;
-      await updateWorkspaceSecret(id, (content) =>
-        mergeKweaverTokenSecret(content, token)
-      );
-    }
+    await this.writeDigitalEmployeeRecordToDatabase(
+      id,
+      request.kweaver_token ?? null
+    );
 
     const skills = normalizeCreateDigitalHumanSkills(request.skills);
     await this.agentSkillsLogic.updateAgentSkills(id, skills);
@@ -288,6 +290,8 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
         await this.openClawCronAdapter.removeCronJob({ id: job.id });
       })
     );
+
+    await this.digitalEmployeeTokenAdapter?.markDigitalEmployeeDeleted(id);
   }
 
   /**
@@ -329,10 +333,7 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
     await this.writeTemplateViaOpenClawFilesRpc(id, merged);
 
     if (patch.kweaver_token !== undefined) {
-      const token = patch.kweaver_token;
-      await updateWorkspaceSecret(id, (content) =>
-        mergeKweaverTokenSecret(content, token)
-      );
+      await this.writeKweaverTokenToDatabase(id, patch.kweaver_token);
     }
 
     let skillsOut: string[] | undefined;
@@ -473,6 +474,44 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
 
     return jobs;
   }
+
+  /**
+   * Persists a digital employee record and optional KWeaver token.
+   *
+   * @param agentId Digital employee id, equal to the OpenClaw agent id.
+   * @param token Token to write, or `null` when not configured.
+   */
+  private async writeDigitalEmployeeRecordToDatabase(
+    agentId: string,
+    token: string | null
+  ): Promise<void> {
+    if (this.digitalEmployeeTokenAdapter === undefined) {
+      return;
+    }
+
+    await this.digitalEmployeeTokenAdapter.upsertKweaverToken(agentId, token);
+  }
+
+  /**
+   * Persists a KWeaver token update into the digital employee table.
+   *
+   * @param agentId Digital employee id, equal to the OpenClaw agent id.
+   * @param token Token to write, or `null` to remove the stored token.
+   */
+  private async writeKweaverTokenToDatabase(
+    agentId: string,
+    token: string | null
+  ): Promise<void> {
+    if (this.digitalEmployeeTokenAdapter === undefined) {
+      return;
+    }
+
+    if (token === null) {
+      await this.digitalEmployeeTokenAdapter.deleteKweaverToken(agentId);
+    } else {
+      await this.digitalEmployeeTokenAdapter.upsertKweaverToken(agentId, token);
+    }
+  }
 }
 
 /**
@@ -514,32 +553,6 @@ function toNotFoundIfAgentMissing(error: unknown, id: string): HttpError {
  */
 export function resolveOpenClawConfigPath(): string {
   return join(homedir(), ".openclaw", "openclaw.json");
-}
-
-/**
- * Replaces KWeaver token entries while preserving unrelated SECRET lines.
- *
- * @param content Current SECRET file content.
- * @param token Token to write, or `null` to remove the entry.
- * @returns Updated SECRET file content.
- */
-export function mergeKweaverTokenSecret(
-  content: string,
-  token: string | null
-): string {
-  const lines = content
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .filter((line) => {
-      const key = line.split(/[=:]/, 1)[0]?.trim();
-      return key !== KWEAVER_TOKEN_KEY && key !== "KWEAVER_TOEN";
-    });
-
-  if (token !== null) {
-    lines.push(`${KWEAVER_TOKEN_KEY}=${token}`);
-  }
-
-  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
 function resolveOpenClawChannelKey(channel: ChannelConfig): "feishu" | "dingtalk" {

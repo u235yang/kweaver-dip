@@ -59,7 +59,6 @@ paths:
         可选 **`skillName`**（技能名称）；不传时按上传文件名（basename、去 `.skill`/`.zip` 后缀）推导为目录名。
         `SKILL.md` 必须包含 front matter 元数据头，且其中的 `name` 必须与 `skillName`/目录名完全一致。
         扁平包（根含 **`SKILL.md`**）时若无法从文件名得到合法名称，须显式传 **`skillName`**。
-        Studio 将文件读入内存后转发至 OpenClaw 网关 `dip` 插件 `POST /v1/config/agents/skills/install`（`name` 以查询参数传递）。
         单文件大小上限 32MB。
       requestBody:
         required: true
@@ -107,11 +106,9 @@ paths:
   /skills/{name}:
     delete:
       operationId: uninstallSkill
-      summary: 卸载仓库 skills 下的技能目录
+      summary: 卸载技能
       description: |
-        删除网关上 `{repoRoot}/skills/<name>/` 中已安装的技能（仅仓库目录；插件内置技能若未在仓库中出现则返回 403）。Studio 在转发请求前会查询 `skills.status`：
-        仅当 `type === "openclaw-managed"` 时允许删除；其他来源（例如 `openclaw-bundled`、`extensions/<name>/skills/`、仓库 `skills/`）会直接返回 403。
-        Studio 转发至 OpenClaw 网关 `dip` 插件 `DELETE /v1/config/agents/skills/{name}`。
+        仅支持卸载用户安装的技能；系统内置技能不可卸载。
       parameters:
         - name: name
           in: path
@@ -144,8 +141,7 @@ paths:
       operationId: getSkillTree
       summary: 获取技能目录树
       description: |
-        Studio 会先通过 OpenClaw `skills.status` 解析技能的绝对目录路径，再将该目录作为内部参数
-        `resolvedSkillPath` 传给 `dip` 插件读取目录树。客户端无需提供该参数。
+        返回指定技能的目录树。客户端只需提供技能 ID。
       parameters:
         - name: name
           in: path
@@ -178,8 +174,7 @@ paths:
       operationId: getSkillContent
       summary: 预览技能文件内容
       description: |
-        Studio 会先通过 OpenClaw `skills.status` 解析技能绝对目录，再将该目录作为内部参数
-        `resolvedSkillPath` 传给 `dip` 插件读取文件。客户端只需提供相对 `path`。
+        预览指定技能目录内的普通文本文件。客户端只需提供技能 ID 和相对 `path`。
       parameters:
         - name: name
           in: path
@@ -218,8 +213,7 @@ paths:
       operationId: downloadSkillFile
       summary: 下载技能文件
       description: |
-        Studio 会先通过 OpenClaw `skills.status` 解析技能绝对目录，再将该目录作为内部参数
-        `resolvedSkillPath` 传给 `dip` 插件下载文件。客户端只需提供相对 `path`。
+        下载指定技能目录内的普通文件。客户端只需提供技能 ID 和相对 `path`。
       parameters:
         - name: name
           in: path
@@ -259,7 +253,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: 数字员工 ID（与 OpenClaw agent id 一致）
+          description: 数字员工 ID
           schema:
             type: string
       responses:

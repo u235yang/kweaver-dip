@@ -98,7 +98,7 @@ paths:
               $ref: './responses.schemas.yaml#/components/schemas/ChatAgentRequest'
       responses:
         "200":
-          description: OpenResponse 风格的消息事件流。服务会保持工具事件结构不变，但会在返回前对工具结果、工具错误、助手文本和失败消息中的密码、Token、Secret、API Key、Cookie、私钥、环境变量等敏感值进行脱敏；变量名或字段名会保留，敏感值替换为 `***`。
+          description: OpenResponse 风格的消息事件流。响应中的敏感值会被脱敏为 `***`。
           content:
             text/event-stream:
               schema:
@@ -126,7 +126,7 @@ paths:
         - name: x-openclaw-session-key
           in: header
           required: true
-          description: 调用前必须先通过 `POST /chat/session` 获取，且键中需包含 `agent:<agentId>` 前缀
+          description: 调用前必须先通过 `POST /chat/session` 获取
           schema:
             type: string
       requestBody:

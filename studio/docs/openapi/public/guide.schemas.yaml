@@ -37,13 +37,13 @@ components:
       properties:
         openclaw_address:
           type: string
-          description: 完整 OpenClaw Gateway 地址，例如 `ws://127.0.0.1:19001`
+          description: OpenClaw 连接地址
         openclaw_token:
           type: string
           description: OpenClaw Gateway Token
         kweaver_base_url:
           type: string
-          description: 从运行时注入环境变量中读取的 KWeaver 服务地址；为空时表示未配置
+          description: KWeaver 服务地址；为空时表示未配置
 
     GuideInitializeRequest:
       type: object
@@ -54,7 +54,7 @@ components:
       properties:
         openclaw_address:
           type: string
-          description: 完整 OpenClaw Gateway 地址，例如 `ws://127.0.0.1:19001`
+          description: OpenClaw 连接地址
         openclaw_token:
           type: string
         kweaver_base_url:

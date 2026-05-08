@@ -95,7 +95,7 @@ components:
         file:
           type: string
           format: binary
-          description: 本地上传文件（二进制）；服务端会修正常见的 multipart UTF-8 文件名乱码
+          description: 本地上传文件（二进制）
       required:
         - file
 

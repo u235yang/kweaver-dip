@@ -19,11 +19,9 @@ components:
     ChannelConfig:
       type: object
       description: |
-        绑定 IM 渠道到 OpenClaw agent。后端会先通过 OpenClaw Gateway WebSocket RPC `config.get` 读取 parsed `config` 对象，更新该对象后转为 `raw`，再通过 `config.set` 写回包含 `bindings` 与 `channels` 的完整配置：
-        - `type: feishu`（或省略）→ `match.channel: "feishu"` 与 `channels.feishu`
-        - `type: dingtalk` → `match.channel: "dingtalk"` 与 `channels.dingtalk`
-        若同类型渠道中已有相同 AppID，则返回 400。绑定关系使用 `config.set` 而不是 `config.patch` / `config.apply`，以避免触发 OpenClaw 网关重启。
-        需已安装对应 OpenClaw 渠道插件（钉钉需安装如 `openclaw-dingtalk`），否则仅写配置仍可能无法在网关侧生效。
+        绑定 IM 渠道到 OpenClaw agent。
+        若同类型渠道中已有相同 AppID，则返回 400。
+        需已安装对应 OpenClaw 渠道插件，否则仅写配置仍可能无法在网关侧生效。
       properties:
         type:
           type: string
@@ -113,7 +111,7 @@ components:
         bkn:
           type: array
           description: |
-            当前业务知识网络范围。后端从 `t_digital_employee.bkn_scope` 读取 id 列表，再按该列表过滤 BKN Backend `GET /api/bkn-backend/v1/knowledge-networks` 的 `entries`，返回 `{ id, name, comment }`。
+            当前业务知识网络范围。
           items:
             $ref: '#/components/schemas/BknEntry'
         skills:
@@ -133,14 +131,13 @@ components:
     CreateDigitalHumanRequest:
       summary: 创建数字员工请求
       description: |
-        后端通过 OpenClaw `agents.create` 创建 agent：内部注册名优先使用请求中的 `id`，未提供时使用 UUID，展示名写在 `IDENTITY.md`。
-        `channel` 通过 OpenClaw Gateway WebSocket RPC `config.get` + `config.set` 写入，不直接写入本机 `~/.openclaw/openclaw.json`，也不会使用会触发网关重启的 `config.patch` / `config.apply`。
+        创建数字员工。未提供 `id` 时自动生成。
       type: object
       properties:
         id:
           type: string
           title: 数字员工 ID
-          description: 可选；未提供时服务端自动生成 UUID
+          description: 可选；未提供时自动生成
         name:
           type: string
           title: 展示名称（IDENTITY.md Name）
@@ -165,14 +162,14 @@ components:
         bkn:
           type: array
           description: |
-            业务知识网络范围；后端将每项 `id` 以逗号分隔写入 `t_digital_employee.bkn_scope`，不会写入 `SOUL.md`。
+            业务知识网络范围。
           items:
             $ref: '#/components/schemas/BknEntry'
         kweaver_token:
           type: string
           maxLength: 255
           description: |
-            KWeaver 应用账号 Token。创建时若传入非空字符串，后端写入 `t_digital_employee.kweaver_token`；该字段不会在详情或响应中回显。
+            KWeaver 应用账号 Token。该字段不会在详情或响应中回显。
         channel:
           $ref: '#/components/schemas/ChannelConfig'
       required:
@@ -187,7 +184,7 @@ components:
       properties:
         id:
           type: string
-          description: 数字员工 ID（与 OpenClaw agent id 一致；未显式指定时通常为 UUID）
+          description: 数字员工 ID
         name:
           type: string
         creature:
@@ -205,7 +202,7 @@ components:
         bkn:
           type: array
           description: |
-            业务知识网络范围；后端将每项 `id` 以逗号分隔写入 `t_digital_employee.bkn_scope`。
+            业务知识网络范围。
           items:
             $ref: '#/components/schemas/BknEntry'
         channel:
@@ -218,8 +215,8 @@ components:
       summary: 更新数字员工（部分字段）
       description: |
         至少提供以下字段之一：`name`、`creature`、`icon_id`、`soul`、`skills`、`bkn`、`kweaver_token`、`channel`（仅出现上述键之一即可，其他未知键不计入）。
-        若 `skills` / `bkn` 出现在 body 中，表示**整组替换**（可为空数组以清空）；`bkn` 写入 `t_digital_employee.bkn_scope`，不会写入 `SOUL.md`。
-        `kweaver_token` 为非空字符串时写入/替换 `t_digital_employee.kweaver_token`；为 `null` 或空字符串时删除该 Token，并清空已选择的 `bkn`。该字段不会在详情或响应中回显。
+        若 `skills` / `bkn` 出现在 body 中，表示**整组替换**（可为空数组以清空）。
+        `kweaver_token` 为非空字符串时写入/替换 Token；为 `null` 或空字符串时删除 Token，并清空已选择的 `bkn`。该字段不会在详情或响应中回显。
       type: object
       properties:
         name:
@@ -238,14 +235,14 @@ components:
         bkn:
           type: array
           description: |
-            当前完整业务知识网络范围；出现时整组替换 `t_digital_employee.bkn_scope`。
+            当前完整业务知识网络范围；出现时整组替换。
           items:
             $ref: '#/components/schemas/BknEntry'
         kweaver_token:
           type: string
           nullable: true
           maxLength: 255
-          description: 写入/替换或删除 `t_digital_employee.kweaver_token`；删除时同步清空 `t_digital_employee.bkn_scope`
+          description: 写入/替换或删除 KWeaver 应用账号 Token；删除时同步清空已选择的业务知识网络
         channel:
           $ref: '#/components/schemas/ChannelConfig'
 

@@ -129,7 +129,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: 数字员工 ID（与 OpenClaw agent id 一致）
+          description: 数字员工 ID
           schema:
             type: string
       responses:

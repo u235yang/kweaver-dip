@@ -6,7 +6,7 @@ components:
       properties:
         ts:
           type: integer
-          description: 服务端时间戳（毫秒）
+          description: 响应时间戳（毫秒）
         path:
           type: string
           description: 会话来源路径
@@ -70,17 +70,17 @@ components:
           description: 最近活动时间戳，单位为毫秒。
         sessionId:
           type: string
-          description: 底层 transcript/session 的标识符。
+          description: 会话实例 ID。
         abortedLastRun:
           type: boolean
         totalTokensFresh:
           type: boolean
         modelProvider:
           type: string
-          description: 为当前 session 解析得到的模型提供方。
+          description: 当前会话的模型提供方。
         model:
           type: string
-          description: 为当前 session 解析得到的模型。
+          description: 当前会话的模型。
         contextTokens:
           type: integer
         derivedTitle:

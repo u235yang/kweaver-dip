@@ -27,7 +27,7 @@ paths:
   /guide/openclaw-config:
     get:
       operationId: getOpenClawDetectedConfig
-      summary: 获取环境注入的 OpenClaw 配置
+      summary: 获取 OpenClaw 配置
       responses:
         "200":
           description: OpenClaw 配置

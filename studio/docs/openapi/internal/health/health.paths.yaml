@@ -1,7 +1,7 @@
 openapi: 3.1.0
 
 info:
-  title: DIP Studio 内部接口
+  title: DIP Studio 健康检查接口
   version: 0.1.0
 
 security: []

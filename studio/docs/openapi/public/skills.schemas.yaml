@@ -14,13 +14,12 @@ components:
           type: boolean
           title: 是否为 DIP 数字员工内置技能
           description: |
-            为 `true` 表示属于内置 trio：`archive-protocol`、`schedule-plan`、`kweaver-core`。
+            为 `true` 表示属于 DIP 数字员工内置技能。
         type:
           type: string
           title: 技能来源标识
           description: |
-            原样透传 OpenClaw `skills.status` 响应中的 `source` 字段，例如 `openclaw-bundled`、
-            `openclaw-managed`、`openclaw-extra`、`agents-skills-personal` 等。未知值会按字符串返回。
+            技能来源类型。
       required:
         - name
         - built_in
@@ -40,12 +39,12 @@ components:
           type: boolean
           title: 是否为 DIP 数字员工内置技能
           description: |
-            为 `true` 表示属于内置 trio：`archive-protocol`、`schedule-plan`、`kweaver-core`。
+            为 `true` 表示属于 DIP 数字员工内置技能。
         type:
           type: string
           title: 技能来源标识
           description: |
-            同 `DigitalHumanSkill.type`，值来自 OpenClaw `skills.status` 的 `source` 字段。
+            技能来源类型。
       required:
         - name
         - built_in
@@ -74,7 +73,7 @@ components:
           title: 技能 ID（来自 SKILL.md 或目录名）
         skillPath:
           type: string
-          title: 网关上落盘的绝对路径
+          title: 技能安装路径
       required:
         - name
         - skillPath

@@ -1,10 +1,18 @@
 # TOOLS.md
 
-## 获取 KWeaver Token
+## 调用 `kweaver-core`
 
-- 当需要调用 `kweaver-sdk` 时，需要通过环境变量传入 KWEAVER_TOKEN。每个数字员工都会配置一个 KWeaver Token，你只能使用配置给你自己的 Token。
+### 获取 KWeaver Token
+
+- 当需要调用 `kweaver-core` 时，需要通过环境变量传入 KWEAVER_TOKEN。每个数字员工都会配置一个 KWeaver Token，你只能使用配置给你自己的 Token。
 - 出于安全考虑， KWeaver Token 没有保存在本地文件中，而是保存在数据库里。当需要使用 KWeaver Token 时，需要通过 `dip-studio` MCP Server 提供的 `get_kweaver_token` 工具来获取。
-- 你应该使用 `mcporter` 来调用 `dip-studio` MCP Server 提供的工具接口，来获取 KWeaver Token。
+- 使用 `mcporter` 来调用 `dip-studio` MCP Server 提供的工具接口，来获取 KWeaver Token。
+
+### 获取可访问的业务知识网络（BKN）
+
+- 由于 KWeaver Token 的权限范围可能大于实际配置给你的业务知识网络范围，所以在查询业务知识网络之前，*一定要*先要获取可访问的业务知识网络范围。
+- 通过 `dip-studio` MCP Server 提供的 `get_bkn_scope` 工具来获取业务知识网络范围，返回结果为逗号隔开的 ID 列表，例如：`d7ukmrpmpvadhg32rjig,d7ukmp9mpvadhg32rjhg`
+- 使用 `mcporter` 来调用 `dip-studio` MCP Server 提供的工具接口，来获取业务知识网络范围。
 
 ## 投递通道消息
 

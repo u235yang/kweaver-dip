@@ -10,14 +10,12 @@ import { useOEMConfigStore } from '@/stores/oemConfigStore'
 import { useUserHistoryStore } from '@/stores/userHistoryStore'
 import { useUserInfoStore } from '@/stores/userInfoStore'
 import { useUserWorkPlanStore } from '@/stores/userWorkPlanStore'
-import { usePinnedDigitalHumansStore } from '@/stores/pinnedDigitalHumansStore'
 import { ExternalLinksSection } from '../components/ExternalLinksMenu'
 import { HistorySection } from '../components/HistorySection'
 import { SiderFooterUser } from '../components/SiderFooterUser'
 import { StoreMenuSection } from '../components/StoreMenuSection'
 import { StudioMenuSection } from '../components/StudioMenuSection'
 import { WorkPlanSection } from '../components/WorkPlanSection'
-import { PinnedDigitalHumansSection } from '../components/PinnedDigitalHumansSection'
 
 interface AdminSiderProps {
   collapsed: boolean
@@ -54,10 +52,6 @@ const AdminSider = ({ collapsed, onCollapse, layout = 'entry' }: AdminSiderProps
   const { getOEMResourceConfig } = useOEMConfigStore()
   const oemResourceConfig = getOEMResourceConfig(language)
   const modules = useUserInfoStore((s) => s.modules)
-  const pinnedDigitalHumans = usePinnedDigitalHumansStore((s) => s.pinnedDigitalHumans)
-  const fetchSidebarPinnedDigitalHumans = usePinnedDigitalHumansStore(
-    (s) => s.fetchSidebarPinnedDigitalHumans,
-  )
   const roleIds = useMemo(() => new Set<string>([]), [])
   const hasStudio = modules.includes('studio')
   const hasStore = modules.includes('store')
@@ -94,11 +88,6 @@ const AdminSider = ({ collapsed, onCollapse, layout = 'entry' }: AdminSiderProps
     if (!hasStudio) return
     void fetchSessions()
   }, [fetchSessions, hasStudio])
-
-  useEffect(() => {
-    if (!hasStudio) return
-    void fetchSidebarPinnedDigitalHumans()
-  }, [fetchSidebarPinnedDigitalHumans, hasStudio])
 
   useEffect(() => {
     const match = location.pathname.match(/^\/studio\/history\/([^/]+)$/)
@@ -160,10 +149,6 @@ const AdminSider = ({ collapsed, onCollapse, layout = 'entry' }: AdminSiderProps
               navigate={navigate}
               allowedKeys={['digital-human', 'skills']}
             />
-
-            {!collapsed && pinnedDigitalHumans.length > 0 ? (
-              <PinnedDigitalHumansSection items={pinnedDigitalHumans} />
-            ) : null}
 
             {!collapsed && topPlans.length > 0 ? (
               <WorkPlanSection

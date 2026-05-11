@@ -26,9 +26,18 @@ vi.mock("node:os", async (importOriginal) => {
 
 import {
   DefaultDigitalHumanLogic,
-  normalizeOpenClawAccountIdFromAppId,
-  resolveDefaultWorkspace
+  normalizeOpenClawAccountIdFromAppId
 } from "./digital-human";
+
+/**
+ * Resolves a temporary workspace fixture path used by file-RPC test doubles.
+ *
+ * @param agentId Agent id used as the fixture directory name.
+ * @returns The fixture directory path.
+ */
+function resolveTestWorkspace(agentId: string): string {
+  return join(fakeHomeForOsMock, ".openclaw", "workspace", agentId);
+}
 
 function stubDigitalEmployeeTokenAdapter(
   overrides?: Partial<DigitalEmployeeTokenAdapter>
@@ -217,16 +226,6 @@ describe("DefaultDigitalHumanLogic", () => {
 
 });
 
-describe("resolveDefaultWorkspace", () => {
-  it("places workspace under ~/.openclaw/workspace/<uuid>", () => {
-    const id = "550e8400-e29b-41d4-a716-446655440000";
-    expect(resolveDefaultWorkspace(id)).toBe(
-      join(fakeHomeForOsMock, ".openclaw", "workspace", id)
-    );
-  });
-});
-
-
 describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
   let fakeHome: string;
 
@@ -246,7 +245,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman reads template fields and skills", async () => {
     const id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -286,7 +285,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman filters BKN list by RDS scope ids", async () => {
     const id = "agent-bkn-rds-only";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: Alice\n", "utf8");
     writeFileSync(
@@ -341,7 +340,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman intersects RDS BKN ids with items from knowledge networks", async () => {
     const id = "agent-bkn-items";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: Alice\n", "utf8");
     writeFileSync(join(ws, "SOUL.md"), "Soul text\n", "utf8");
@@ -390,7 +389,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman includes channel when OpenClaw config binds feishu via accounts", async () => {
     const id = "b1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -464,7 +463,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman includes channel when OpenClaw config binds feishu", async () => {
     const id = "b1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -527,7 +526,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman omits channel when config JSON is invalid", async () => {
     const id = "c1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: A\n", "utf8");
     writeFileSync(join(ws, "SOUL.md"), "x\n", "utf8");
@@ -569,7 +568,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman omits channel when binding channel key is unsupported", async () => {
     const id = "a0b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: A\n", "utf8");
     writeFileSync(join(ws, "SOUL.md"), "x\n", "utf8");
@@ -618,7 +617,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman omits channel when binding is for another agent", async () => {
     const id = "d1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: A\n", "utf8");
     writeFileSync(join(ws, "SOUL.md"), "x\n", "utf8");
@@ -667,7 +666,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman omits channel when feishu credentials are incomplete", async () => {
     const id = "e1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(join(ws, "IDENTITY.md"), "- Name: A\n", "utf8");
     writeFileSync(join(ws, "SOUL.md"), "x\n", "utf8");
@@ -998,10 +997,8 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
       skills: ["sk1"]
     });
 
-    const ws = resolveDefaultWorkspace(result.id);
     expect(createAgent).toHaveBeenCalledWith({
-      name: result.id,
-      workspace: ws
+      name: result.id
     });
     expect(listAgentFiles).toHaveBeenCalledWith({ agentId: result.id });
     expect(setAgentFile).toHaveBeenCalledWith(
@@ -1065,12 +1062,6 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
       kweaver_token: "kw-token"
     });
 
-    expect(getAgentFile).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: "SECRET" })
-    );
-    expect(setAgentFile).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: "SECRET" })
-    );
     expect(tokenAdapter.upsertDigitalEmployee).toHaveBeenCalledWith(
       "agent-secret",
       "kw-token",
@@ -1155,8 +1146,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
     expect(randomUuidSpy).not.toHaveBeenCalled();
     expect(createAgent).toHaveBeenCalledWith({
-      name: "__bkn_creator__",
-      workspace: resolveDefaultWorkspace("__bkn_creator__")
+      name: "__bkn_creator__"
     });
     expect(listAgentFiles).toHaveBeenCalledWith({ agentId: "__bkn_creator__" });
     expect(result.id).toBe("__bkn_creator__");
@@ -1250,7 +1240,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman returns the full bound skill list in the response", async () => {
     const id = "a1b2c3d4-e5f6-7890-abcd-ef1234567891";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -1300,7 +1290,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("updateDigitalHuman merges patch and writes files via gateway RPC", async () => {
     const id = "f1e2d3c4-b5a6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -1400,9 +1390,6 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     expect(result.bkn).toEqual([
       { id: "kn-1", name: "Knowledge 1", comment: "Comment 1", color: "#1677ff" }
     ]);
-    expect(setAgentFile).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: "SECRET" })
-    );
     expect(tokenAdapter.upsertKweaverToken).toHaveBeenCalledWith(id, "new-token");
     expect(tokenAdapter.deleteKweaverToken).not.toHaveBeenCalled();
   });
@@ -1439,9 +1426,6 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
     });
 
     expect(result.bkn).toEqual([]);
-    expect(setAgentFile).not.toHaveBeenCalledWith(
-      expect.objectContaining({ name: "SECRET" })
-    );
     expect(tokenAdapter.deleteKweaverToken).toHaveBeenCalledWith(id);
     expect(tokenAdapter.upsertKweaverToken).not.toHaveBeenCalled();
     expect(tokenAdapter.upsertBknScope).toHaveBeenCalledWith(id, null);
@@ -1588,7 +1572,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman includes channel when OpenClaw config binds dingtalk via accounts", async () => {
     const id = "f1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),
@@ -1659,7 +1643,7 @@ describe("DefaultDigitalHumanLogic lifecycle (filesystem + adapter)", () => {
 
   it("getDigitalHuman includes channel when OpenClaw config binds dingtalk (legacy top-level)", async () => {
     const id = "f1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    const ws = resolveDefaultWorkspace(id);
+    const ws = resolveTestWorkspace(id);
     mkdirSync(ws, { recursive: true });
     writeFileSync(
       join(ws, "IDENTITY.md"),

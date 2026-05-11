@@ -22,7 +22,7 @@ import type {
 import type { OpenClawConfigGetResult } from "../types/openclaw";
 import type { OpenClawCronJob } from "../types/plan";
 import { normalizeCreateDigitalHumanSkills } from "../utils/skills";
-import { resolveOpenClawWorkspacePath } from "../utils/workspace-secret";
+import { resolveWorkspaceDir } from "../utils/env";
 import type { AgentSkillsLogic } from "./agent-skills";
 import { DefaultBknLogic, type BknLogic } from "./bkn";
 import {
@@ -236,7 +236,6 @@ export class DefaultDigitalHumanLogic implements DigitalHumanLogic {
   ): Promise<CreateDigitalHumanResult> {
     const id = request.id?.trim() || randomUUID();
     const template = buildTemplate(request);
-
     const workspace = resolveDefaultWorkspace(id);
 
     await this.openClawAgentsAdapter.createAgent({
@@ -691,7 +690,7 @@ function parseKnowledgeNetworkListResponse(body: string): BknEntry[] {
  * @returns The absolute path to the agent-specific workspace.
  */
 export function resolveDefaultWorkspace(uuid: string): string {
-  return resolveOpenClawWorkspacePath(uuid);
+  return join(resolveWorkspaceDir(), uuid);
 }
 
 /**

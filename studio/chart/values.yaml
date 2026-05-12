@@ -39,6 +39,7 @@ depServices:
 ingress:
   enabled: true
   path: /api/dip-studio
+  mcpPath: /studio/mcp
   pathType: Prefix
   annotations:
     nginx.ingress.kubernetes.io/enable-cors: "true"

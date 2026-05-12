@@ -68,6 +68,7 @@ if (fs.existsSync(dotenvFilePath)) {
 }
 
 const STATE_DIR = path.join(os.homedir(), ".openclaw");
+const MCPORTER_CONFIG_FILE_NAME = "mcporter.json";
 const BUILT_IN_DIR = process.env.OPENCLAW_BUILT_IN_DIR || path.join(__dirname, "../..", "built-in");
 const WORKSPACE_ROOT = path.resolve(
   process.env.OPENCLAW_WORKSPACE_DIR || path.join(STATE_DIR, "workspace")
@@ -83,6 +84,96 @@ function readOptionalTextFile(filePath) {
   }
 
   return fs.readFileSync(filePath, "utf8");
+}
+
+/**
+ * Resolves the Studio MCP endpoint registered into mcporter.
+ *
+ * @returns Reachable Studio MCP base URL.
+ */
+function resolveStudioMcpBaseUrl() {
+  return "http://127.0.0.1:3001/studio/mcp";
+}
+
+/**
+ * Builds the mcporter server definition for DIP Studio MCP.
+ *
+ * @param baseUrl Reachable Studio MCP base URL.
+ * @returns mcporter server definition.
+ */
+function createDipStudioMcporterServer(baseUrl) {
+  return {
+    description: "数字员工 MCP 服务",
+    baseUrl,
+    headers: {
+      Accept: "application/json, text/event-stream",
+      "Content-Type": "application/json"
+    }
+  };
+}
+
+/**
+ * Reads a JSON object file and returns an empty object when it is missing.
+ *
+ * @param filePath JSON file path.
+ * @returns Parsed JSON object.
+ */
+function readOptionalJsonObject(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
+
+  const parsed = readJsonFile(filePath);
+
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+}
+
+/**
+ * Upserts the DIP Studio MCP server into one mcporter config file.
+ *
+ * @param configPath mcporter config path.
+ * @param baseUrl Reachable Studio MCP base URL.
+ */
+function upsertMcporterConfig(configPath, baseUrl) {
+  const config = readOptionalJsonObject(configPath);
+  const mcpServers =
+    config.mcpServers && typeof config.mcpServers === "object" && !Array.isArray(config.mcpServers)
+      ? config.mcpServers
+      : {};
+
+  config.mcpServers = {
+    ...mcpServers,
+    "dip-studio": createDipStudioMcporterServer(baseUrl)
+  };
+
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf8");
+  console.log(`[写入] mcporter 注册 dip-studio MCP -> ${configPath}`);
+}
+
+/**
+ * Registers DIP Studio MCP into the current user's mcporter config.
+ *
+ * @param baseUrl Reachable Studio MCP base URL.
+ */
+function registerHomeMcporterConfig(baseUrl) {
+  upsertMcporterConfig(
+    path.join(os.homedir(), ".mcporter", MCPORTER_CONFIG_FILE_NAME),
+    baseUrl
+  );
+}
+
+/**
+ * Registers DIP Studio MCP into one agent workspace project config.
+ *
+ * @param workspacePath Agent workspace path.
+ * @param baseUrl Reachable Studio MCP base URL.
+ * @param agentId Target agent id.
+ */
+function registerWorkspaceMcporterConfig(workspacePath, baseUrl, agentId) {
+  const configPath = path.join(workspacePath, "config", MCPORTER_CONFIG_FILE_NAME);
+  upsertMcporterConfig(configPath, baseUrl);
+  console.log(`[同步] ${agentId} mcporter 配置已指向 ${baseUrl}`);
 }
 
 function assertBuiltInAgentMetadata(metadata, metadataPath) {
@@ -242,6 +333,7 @@ async function initPersonas(builtInAgents) {
   console.log("🦞 初始化 OpenClaw 内置 Agent 工作区...");
   console.log("根状态目录: " + STATE_DIR);
   console.log("工作区目录: " + WORKSPACE_ROOT + "\n");
+  const studioMcpBaseUrl = resolveStudioMcpBaseUrl();
 
   for (const agent of builtInAgents) {
     try {
@@ -252,6 +344,7 @@ async function initPersonas(builtInAgents) {
 
       syncBuiltInFile(agent.workspace, "SOUL.md", agent.soul, agent.id);
       syncBuiltInFile(agent.workspace, "IDENTITY.md", agent.identity, agent.id);
+      registerWorkspaceMcporterConfig(agent.workspace, studioMcpBaseUrl, agent.id);
     } catch (err) {
       console.error(`[失败] ${agent.id} 初始化报错:`, err.message);
     }
@@ -295,6 +388,7 @@ async function syncAuthProfiles(builtInAgents) {
 
 async function main() {
   const builtInAgents = loadBuiltInAgents();
+  registerHomeMcporterConfig(resolveStudioMcpBaseUrl());
   await initOpenClawConfig(builtInAgents);
   await syncAuthProfiles(builtInAgents);
   await initPersonas(builtInAgents);

@@ -3,9 +3,18 @@ import type { Express } from "express";
 import { loadStudioRuntimeConfigFromDatabase } from "./logic/studio-runtime-config";
 
 /**
- * Fixed host used by the Studio MCP Server.
+ * Fixed bind host used by the Studio MCP Server.
+ *
+ * Kubernetes Services connect through the Pod IP, so the server must not bind
+ * only to loopback.
  */
-const STUDIO_MCP_HOST = "127.0.0.1";
+const STUDIO_MCP_BIND_HOST = "0.0.0.0";
+
+/**
+ * Host advertised to the MCP Express app for locally generated endpoint
+ * metadata.
+ */
+const STUDIO_MCP_APP_HOST = "127.0.0.1";
 
 /**
  * Fixed port used by the Studio MCP Server.
@@ -40,10 +49,10 @@ export async function bootstrapMcpServer() {
   } = await import("./mcp/app.js");
   const logic = createDefaultStudioMcpLogic();
   const app = createStudioMcpApp(() => createStudioMcpServer(logic), {
-    host: STUDIO_MCP_HOST
+    host: STUDIO_MCP_APP_HOST
   });
 
-  return startMcpServer(app, STUDIO_MCP_PORT, STUDIO_MCP_HOST);
+  return startMcpServer(app, STUDIO_MCP_PORT, STUDIO_MCP_BIND_HOST);
 }
 
 void bootstrapMcpServer();

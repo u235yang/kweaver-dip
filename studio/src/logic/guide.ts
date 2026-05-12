@@ -25,7 +25,7 @@ import {
   resolveGatewayHost,
   resolveGatewayPort,
   resolveGatewayProtocol,
-  resolveWorkspaceDir,
+  resolveLocalWorkspaceDir,
   setStudioRuntimeConfig
 } from "../utils/env";
 import type {
@@ -329,7 +329,7 @@ export class DefaultGuideLogic implements GuideLogic {
 
     return readOpenClawDetectedConfig({
       envSource: process.env,
-      openClawConfigPath: resolveOpenClawLocalPathsFromEnv(
+      openClawConfigPath: resolveHostWorkspaceDir(
         process.env,
         this.studioRootDir
       ).configPath,
@@ -346,7 +346,7 @@ export class DefaultGuideLogic implements GuideLogic {
   public async initialize(
     request: InitializeGuideRequest
   ): Promise<void> {
-    const localPaths = resolveOpenClawLocalPathsFromEnv(process.env, this.studioRootDir);
+    const localPaths = resolveHostWorkspaceDir(process.env, this.studioRootDir);
     const normalized = normalizeInitializeGuideRequest(request, localPaths);
     const envFilePath = join(this.studioRootDir, ".env");
     const kweaverBaseUrl =
@@ -825,7 +825,7 @@ export function normalizeInitializeGuideRequest(
   const stateDir =
     localPaths?.stateDir ??
     readRequiredGuideString(join(process.env.HOME ?? "", ".openclaw"), "stateDir");
-  const workspaceDir = localPaths?.workspaceDir ?? resolveWorkspaceDir();
+  const workspaceDir = localPaths?.workspaceDir ?? resolveLocalWorkspaceDir();
   const configPath = localPaths?.configPath ?? join(stateDir, "openclaw.json");
 
   return {
@@ -955,30 +955,26 @@ export function buildOpenClawRootEnvEntries(
 }
 
 /**
- * Resolves OpenClaw local filesystem paths using the configured OpenClaw host path.
+ * Resolves OpenClaw local filesystem paths from the Studio process home.
  *
- * @param envSource Environment variable source containing OPENCLAW_HOST_PATH.
+ * @param _envSource Environment variable source, ignored for backward compatibility.
  * @param _studioRootDir Base directory used to resolve relative paths, ignored.
  * @returns The resolved config, state, and workspace paths.
  */
-export function resolveOpenClawLocalPathsFromEnv(
-  envSource: NodeJS.ProcessEnv,
+export function resolveHostWorkspaceDir(
+  _envSource: NodeJS.ProcessEnv,
   _studioRootDir: string
 ): {
   configPath: string;
   stateDir: string;
   workspaceDir: string;
 } {
-  const stateDir = readOptionalString(envSource.OPENCLAW_HOST_PATH);
-
-  if (stateDir === undefined) {
-    throw new Error("OPENCLAW_HOST_PATH is required");
-  }
+  const stateDir = join(homedir(), ".openclaw");
 
   return {
     configPath: join(stateDir, "openclaw.json"),
     stateDir,
-    workspaceDir: resolveWorkspaceDir(stateDir)
+    workspaceDir: join(stateDir, "workspace")
   };
 }
 

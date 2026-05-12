@@ -22,7 +22,7 @@ import type {
 import type { OpenClawConfigGetResult } from "../types/openclaw";
 import type { OpenClawCronJob } from "../types/plan";
 import { normalizeCreateDigitalHumanSkills } from "../utils/skills";
-import { resolveWorkspaceDir } from "../utils/env";
+import { resolveLocalWorkspaceDir } from "../utils/env";
 import type { AgentSkillsLogic } from "./agent-skills";
 import { DefaultBknLogic, type BknLogic } from "./bkn";
 import {
@@ -690,7 +690,7 @@ function parseKnowledgeNetworkListResponse(body: string): BknEntry[] {
  * @returns The absolute path to the agent-specific workspace.
  */
 export function resolveDefaultWorkspace(uuid: string): string {
-  return join(resolveWorkspaceDir(), uuid);
+  return join(resolveLocalWorkspaceDir(), uuid);
 }
 
 /**

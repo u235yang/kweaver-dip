@@ -129,7 +129,7 @@ export function getEnv(): {
   openClawGatewayHttpUrl: string;
   openClawGatewayToken?: string;
   openClawGatewayTimeoutMs: number;
-  openClawWorkspaceDir: string;
+  openClawLocalWorkspaceDir: string;
 } {
   loadEnvFile();
 
@@ -161,7 +161,7 @@ export function getEnv(): {
       studioRuntimeConfig?.openClawGatewayToken ??
       readOptionalString(process.env.OPENCLAW_GATEWAY_TOKEN),
     openClawGatewayTimeoutMs: resolveTimeoutMs(process.env.OPENCLAW_GATEWAY_TIMEOUT_MS),
-    openClawWorkspaceDir: resolveWorkspaceDir()
+    openClawLocalWorkspaceDir: resolveLocalWorkspaceDir()
   };
 }
 
@@ -455,13 +455,13 @@ export function readOptionalString(value: string | undefined): string | undefine
 }
 
 /**
- * Resolves the OpenClaw workspace root directory from the OpenClaw host path.
+ * Resolves the OpenClaw workspace root directory passed to OpenClaw RPC calls.
  *
  * @param value The raw OPENCLAW_HOST_PATH environment variable value.
- * @returns The configured workspace root directory.
+ * @returns The configured workspace root directory from OpenClaw's host view.
  * @throws {Error} Thrown when OPENCLAW_HOST_PATH is empty.
  */
-export function resolveWorkspaceDir(
+export function resolveLocalWorkspaceDir(
   value: string | undefined = process.env.OPENCLAW_HOST_PATH
 ): string {
   const openClawHostPath = readOptionalString(value);

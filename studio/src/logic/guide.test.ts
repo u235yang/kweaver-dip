@@ -42,9 +42,9 @@ import {
   resolveDefaultKweaverBaseUrl,
   resolveDefaultOpenClawGatewayAddress,
   resolveExternalOpenClawHost,
+  resolveHostWorkspaceDir,
   resolveHostAddress,
   resolveInjectedPath,
-  resolveOpenClawLocalPathsFromEnv,
   stripWrappingQuotes,
   upsertEnvEntries
 } from "./guide";
@@ -738,9 +738,9 @@ describe("OpenClaw root env helpers", () => {
     });
   });
 
-  it("resolves local OpenClaw paths from OPENCLAW_HOST_PATH", () => {
+  it("resolves local OpenClaw paths from the Studio process home", () => {
     expect(
-      resolveOpenClawLocalPathsFromEnv(
+      resolveHostWorkspaceDir(
         {
           OPENCLAW_ROOT_DIR: "~/.openclaw-dev",
           OPENCLAW_HOST_PATH: "/data/.openclaw"
@@ -748,16 +748,10 @@ describe("OpenClaw root env helpers", () => {
         "/tmp/studio"
       )
     ).toEqual({
-      configPath: join("/data/.openclaw", "openclaw.json"),
-      stateDir: "/data/.openclaw",
-      workspaceDir: join("/data/.openclaw", "workspace")
+      configPath: join(fakeHomeForOsMock, ".openclaw", "openclaw.json"),
+      stateDir: join(fakeHomeForOsMock, ".openclaw"),
+      workspaceDir: join(fakeHomeForOsMock, ".openclaw", "workspace")
     });
-  });
-
-  it("rejects local OpenClaw paths without OPENCLAW_HOST_PATH", () => {
-    expect(() => resolveOpenClawLocalPathsFromEnv({}, "/tmp/studio")).toThrow(
-      "OPENCLAW_HOST_PATH is required"
-    );
   });
 
   it("does not write OpenClaw root env values", async () => {

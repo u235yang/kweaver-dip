@@ -80,7 +80,7 @@ describe("connectOpenClawGatewayIfInitialized", () => {
       openClawGatewayHttpUrl: "http://127.0.0.1:19001/",
       openClawGatewayToken: "token-1",
       openClawGatewayTimeoutMs: 5000,
-      openClawWorkspaceDir: join(studioRootDir, ".openclaw", "workspace")
+      openClawLocalWorkspaceDir: join(studioRootDir, ".openclaw", "workspace")
     });
 
     await expect(
@@ -133,7 +133,7 @@ describe("connectOpenClawGatewayIfInitialized", () => {
       openClawGatewayHttpUrl: "http://127.0.0.1:19001/",
       openClawGatewayToken: "token-1",
       openClawGatewayTimeoutMs: 5000,
-      openClawWorkspaceDir: join(studioRootDir, ".openclaw", "workspace")
+      openClawLocalWorkspaceDir: join(studioRootDir, ".openclaw", "workspace")
     });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 

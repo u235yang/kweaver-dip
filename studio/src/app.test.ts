@@ -16,9 +16,9 @@ import {
   resolveGatewayHttpUrl,
   resolveGatewayPort,
   resolveGatewayProtocol,
+  resolveLocalWorkspaceDir,
   resolvePort,
   resolveTimeoutMs,
-  resolveWorkspaceDir
 } from "./utils/env";
 import { HttpError } from "./errors/http-error";
 import { errorHandler, resolveErrorCode } from "./middleware/error-handler";
@@ -937,10 +937,10 @@ describe("gateway env helpers", () => {
     expect(() => resolveTimeoutMs("0")).toThrow(
       "Invalid OPENCLAW_GATEWAY_TIMEOUT_MS value: 0"
     );
-    expect(resolveWorkspaceDir("/data/.openclaw")).toBe(
+    expect(resolveLocalWorkspaceDir("/data/.openclaw")).toBe(
       join("/data/.openclaw", "workspace")
     );
-    expect(() => resolveWorkspaceDir(" ")).toThrow("OPENCLAW_HOST_PATH is required");
+    expect(() => resolveLocalWorkspaceDir(" ")).toThrow("OPENCLAW_HOST_PATH is required");
   });
 });
 
@@ -972,7 +972,7 @@ describe("getEnv", () => {
       openClawGatewayHttpUrl: "http://127.0.0.1:19001/",
       openClawGatewayToken: undefined,
       openClawGatewayTimeoutMs: 6000,
-      openClawWorkspaceDir: join("/data/.openclaw", "workspace")
+      openClawLocalWorkspaceDir: join("/data/.openclaw", "workspace")
     });
   });
 
@@ -999,7 +999,7 @@ describe("getEnv", () => {
       oauthMockUserId: "user-dev",
       openClawGatewayUrl: "wss://gateway.example.com/ws",
       openClawGatewayHttpUrl: "https://gateway.example.com/ws",
-      openClawWorkspaceDir: join("/data/.openclaw", "workspace")
+      openClawLocalWorkspaceDir: join("/data/.openclaw", "workspace")
     });
   });
 });

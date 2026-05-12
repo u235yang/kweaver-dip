@@ -16,8 +16,8 @@ import {
   resolveBknBackendUrl,
   resolveGatewayHttpUrl,
   resolveHydraAdminUrl,
+  resolveLocalWorkspaceDir,
   resolvePositiveInteger,
-  resolveWorkspaceDir,
   setStudioRuntimeConfig
 } from "./env";
 
@@ -72,10 +72,10 @@ describe("env helpers", () => {
   });
 
   it("resolves OpenClaw workspace from OPENCLAW_HOST_PATH", () => {
-    expect(resolveWorkspaceDir("/data/.openclaw/")).toBe(
+    expect(resolveLocalWorkspaceDir("/data/.openclaw/")).toBe(
       join("/data/.openclaw", "workspace")
     );
-    expect(() => resolveWorkspaceDir(" ")).toThrow("OPENCLAW_HOST_PATH is required");
+    expect(() => resolveLocalWorkspaceDir(" ")).toThrow("OPENCLAW_HOST_PATH is required");
   });
 
   it("reloads the latest OpenClaw gateway config from a specific env file", () => {

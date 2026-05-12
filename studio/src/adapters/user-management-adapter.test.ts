@@ -23,7 +23,7 @@ describe("DefaultUserManagementAdapter", () => {
         openClawGatewayUrl: "ws://gateway",
         openClawGatewayHttpUrl: "http://gateway",
         openClawGatewayTimeoutMs: 5000,
-        openClawWorkspaceDir: "/tmp"
+        openClawLocalWorkspaceDir: "/tmp"
       }),
       createClient
     });

@@ -33,14 +33,27 @@ import ToolIcon from '@/assets/icons/tool.svg';
 import MCPIcon from '@/assets/icons/mcp.svg';
 import NoResultIcon from '@/assets/icons/no-result.svg';
 import {
+  CONTEXT_LOADER_TOOL_BOX_ID,
+  applyContextLoaderToolInputConfig,
+  buildDefaultToolInputConfig,
   getInputParamsFromOpenAPISpec,
+  mergeToolInputConfig,
+  mergeToolInputWithHeaders,
   hiddenBuildInFields,
   transformAgentInput,
   getMCPInputParamsFromOpenAPISpec,
 } from '../utils';
 import './style.less';
 
-const ToolModal = ({ agentKey, onCancel, value, onConfirm, retrieverBlockOptions, allPreviousBlockVars }: any) => {
+const ToolModal = ({
+  agentKey,
+  onCancel,
+  value,
+  onConfirm,
+  retrieverBlockOptions,
+  allPreviousBlockVars,
+  hasKnowledgeNetwork,
+}: any) => {
   const microWidgetProps = useMicroWidgetProps();
   const { publicAndCurrentDomainIds } = useBusinessDomain();
   const [treeProps, setTreeProps, getTreeProps] = useLatestState({
@@ -393,25 +406,12 @@ const ToolModal = ({ agentKey, onCancel, value, onConfirm, retrieverBlockOptions
         };
       }
       const toolInput = item.sourceData?.tool_input;
-      const getToolInput = (toolInput: any) => {
-        return toolInput.map((item: any) => {
-          if (item.children) {
-            return {
-              input_name: item.input_name,
-              input_type: item.input_type,
-              children: getToolInput(item.children),
-            };
-          }
-          return {
-            input_name: item.input_name,
-            input_type: item.input_type,
-            map_type: 'auto',
-            map_value: '',
-            enable: item.required ?? false,
-          };
-        });
-      };
-      tempTool.tool_input = target?.tool_input ?? getToolInput(toolInput);
+      const defaultToolInput = buildDefaultToolInputConfig(toolInput);
+      const mergedToolInput = mergeToolInputConfig(defaultToolInput, target?.tool_input || []);
+      tempTool.tool_input =
+        tool_type === 'tool' && item.sourceData?.box_id === CONTEXT_LOADER_TOOL_BOX_ID
+          ? applyContextLoaderToolInputConfig(mergedToolInput, hasKnowledgeNetwork)
+          : target?.tool_input ?? defaultToolInput;
       return tempTool;
     });
 
@@ -574,7 +574,7 @@ const ToolModal = ({ agentKey, onCancel, value, onConfirm, retrieverBlockOptions
         // 合并headers到tool_input
         const finalToolData = toolData.map((tool: any) => ({
           ...tool,
-          tool_input: _.uniqBy([...tool.tool_input, ...headers], 'input_name'),
+          tool_input: _.uniqBy([...mergeToolInputWithHeaders(tool.tool_input, global_headers), ...headers], 'input_name'),
         }));
 
         const childTreeData = adTreeUtils.createAdTreeNodeData(finalToolData, {
@@ -681,7 +681,7 @@ const ToolModal = ({ agentKey, onCancel, value, onConfirm, retrieverBlockOptions
             // 合并headers到tool_input
             const finalToolData = toolData.map((tool: any) => ({
               ...tool,
-              tool_input: _.uniqBy([...tool.tool_input, ...headers], 'input_name'),
+              tool_input: _.uniqBy([...mergeToolInputWithHeaders(tool.tool_input, global_headers), ...headers], 'input_name'),
             }));
             const childTreeData = adTreeUtils.createAdTreeNodeData(finalToolData, {
               titleField: 'tool_name',

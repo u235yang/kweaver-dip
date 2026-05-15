@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import intl from 'react-intl-universal';
 import classNames from 'classnames';
 import { Button, Table, Space, message } from 'antd';
-import { uniqBy, forEach, keyBy } from 'lodash';
+import { uniqBy, forEach, keyBy, isEqual } from 'lodash';
 import { PlusOutlined, SettingOutlined, RightOutlined } from '@ant-design/icons';
 import { type ResultProcessStrategyType } from '@/apis/agent-factory';
 import AgentIcon from '@/assets/icons/agent3.svg';
@@ -27,6 +27,14 @@ import {
   DatasourceConfigTypeEnum,
   LLMConfigTypeEnum,
 } from '@/apis/agent-factory/type';
+import {
+  CONTEXT_LOADER_TOOL_BOX_ID,
+  applyContextLoaderToolInputConfig,
+  buildDefaultToolInputConfig,
+  getInputParamsFromOpenAPISpec,
+  mergeToolInputConfig,
+  updateContextLoaderKnIdInput,
+} from '../utils';
 import styles from '../ConfigSection.module.less';
 import SectionPanel from '../../common/SectionPanel';
 import AddToolModal from '../AddToolModal';
@@ -54,6 +62,7 @@ interface SkillItem {
     map_value: any;
   }>;
   intervention?: boolean;
+  intervention_confirmation_message?: string | null;
   data_source_config?: SkillAgentDataSourceConfig;
   llm_config?: SkillAgentLLMConfig;
 
@@ -84,6 +93,51 @@ interface SkillsSectionProps {
   // 只读模式下的技能
   viewSkills?: any;
 }
+
+const buildSkillsPayload = (updatedSkills: SkillItem[]) => ({
+  tools: updatedSkills
+    .filter(skill => skill.tool_type === 'tool')
+    .map(skill => ({
+      tool_id: skill.tool_id,
+      tool_box_id: skill.tool_box_id,
+      tool_input: skill.tool_input,
+      intervention: skill.intervention || false,
+      intervention_confirmation_message: skill.intervention ? skill.intervention_confirmation_message : null,
+      tool_timeout: (skill as any).tool_timeout || 300,
+      details: skill.details || skill,
+      result_process_strategies: skill.result_process_strategies,
+    })),
+  agents: updatedSkills
+    .filter(skill => skill.tool_type === 'agent')
+    .map(skill => ({
+      agent_key: skill.tool_id,
+      agent_version: skill.agent_version || skill.tool_box_id,
+      agent_input: skill.tool_input || [],
+      intervention: skill.intervention || false,
+      intervention_confirmation_message: skill.intervention ? skill.intervention_confirmation_message : null,
+      agent_timeout: skill.agent_timeout || 1800,
+      data_source_config: skill.data_source_config,
+      llm_config: skill.llm_config,
+      details: skill.details || skill,
+    })),
+  mcps: updatedSkills
+    .filter(skill => skill.tool_type === 'mcp')
+    .reduce((acc: Array<{ mcp_server_id: string; details?: any }>, skill) => {
+      const serverId = skill.tool_box_id;
+      const findMCP = acc.find(mcp => mcp.mcp_server_id === serverId);
+      if (!findMCP) {
+        acc.push({
+          mcp_server_id: serverId,
+          details: {
+            tools: skill.details?.tools || [skill],
+          },
+        });
+      } else {
+        findMCP.details.tools.push(skill);
+      }
+      return acc;
+    }, []),
+});
 
 const SkillsSection = (props: SkillsSectionProps) => {
   const { state, actions, readonly = false, viewSkills } = props;
@@ -190,6 +244,56 @@ const SkillsSection = (props: SkillsSectionProps) => {
     tool: null as any,
   });
   const [isExpanded, setIsExpanded] = useState(false);
+  const prevKnowledgeNetworkIdsRef = useRef<string[] | null>(null);
+  const syncSkillsState = useCallback(
+    (updatedSkills: SkillItem[]) => {
+      setSkills(updatedSkills);
+      actions.updateSkills(buildSkillsPayload(updatedSkills));
+    },
+    [actions]
+  );
+  const hasKnowledgeNetwork = Boolean(state?.config?.data_source?.knowledge_network?.length);
+
+  const buildContextLoaderTools = useCallback(
+    async () => {
+      if (!publicAndCurrentDomainIds?.length) return [];
+
+      const response = await getBoxToolList(
+        CONTEXT_LOADER_TOOL_BOX_ID,
+        {
+          all: true,
+          status: 'enabled',
+        },
+        publicAndCurrentDomainIds
+      );
+
+      return (response.tools || []).map(tool => {
+        const existingTool = skills.find(
+          skill => skill.tool_type === 'tool' && skill.tool_box_id === CONTEXT_LOADER_TOOL_BOX_ID && skill.tool_id === tool.tool_id
+        );
+        const defaultToolInput = buildDefaultToolInputConfig(getInputParamsFromOpenAPISpec(tool.metadata?.api_spec));
+        const toolInput = applyContextLoaderToolInputConfig(
+          mergeToolInputConfig(defaultToolInput, existingTool?.tool_input || []),
+          hasKnowledgeNetwork
+        );
+
+        return {
+          ...existingTool,
+          tool_type: 'tool',
+          tool_id: tool.tool_id,
+          tool_name: tool.name,
+          tool_box_id: CONTEXT_LOADER_TOOL_BOX_ID,
+          tool_box_name: toolBoxDetails[CONTEXT_LOADER_TOOL_BOX_ID]?.box_name,
+          tool_desc: tool.description,
+          intervention: existingTool?.intervention ?? false,
+          intervention_confirmation_message: existingTool?.intervention_confirmation_message ?? null,
+          tool_input: toolInput,
+          details: tool,
+        } as SkillItem;
+      });
+    },
+    [publicAndCurrentDomainIds, toolBoxDetails, skills, hasKnowledgeNetwork]
+  );
 
   // 获取MCP服务器详情的函数
   const fetchMCPServerDetails = useCallback(async (serverIds: string[], publicAndCurrentDomainIds: string[]) => {
@@ -521,6 +625,75 @@ const SkillsSection = (props: SkillsSectionProps) => {
     return result;
   }, [skills, mcpServerDetails, mcpToolsDetails, toolBoxDetails, agentDetails, toolDetails, publicAndCurrentDomainIds]);
 
+  useEffect(() => {
+    setSkills(allSkills);
+  }, [allSkills]);
+
+  useEffect(() => {
+    if (readonly) return;
+
+    const currentKnowledgeNetworkIds =
+      state?.config?.data_source?.knowledge_network?.map((item: any) => item.knowledge_network_id) || [];
+
+    if (prevKnowledgeNetworkIdsRef.current === null) {
+      prevKnowledgeNetworkIdsRef.current = currentKnowledgeNetworkIds;
+      return;
+    }
+
+    if (isEqual(prevKnowledgeNetworkIdsRef.current, currentKnowledgeNetworkIds)) {
+      return;
+    }
+
+    const previousKnowledgeNetworkIds = prevKnowledgeNetworkIdsRef.current;
+    const hadKnowledgeNetwork = previousKnowledgeNetworkIds.length > 0;
+    const hasKnowledgeNetwork = currentKnowledgeNetworkIds.length > 0;
+
+    const syncContextLoader = async () => {
+      if (!publicAndCurrentDomainIds?.length) return;
+
+      if (!hadKnowledgeNetwork && hasKnowledgeNetwork) {
+        const contextLoaderTools = await buildContextLoaderTools();
+        const otherSkills = skills.filter(
+          skill => !(skill.tool_type === 'tool' && skill.tool_box_id === CONTEXT_LOADER_TOOL_BOX_ID)
+        );
+
+        syncSkillsState([...otherSkills, ...contextLoaderTools]);
+      } else if (hadKnowledgeNetwork && !hasKnowledgeNetwork) {
+        const hasContextLoaderTools = skills.some(
+          skill => skill.tool_type === 'tool' && skill.tool_box_id === CONTEXT_LOADER_TOOL_BOX_ID
+        );
+
+        if (hasContextLoaderTools) {
+          syncSkillsState(
+            skills.map(skill => {
+              if (skill.tool_type !== 'tool' || skill.tool_box_id !== CONTEXT_LOADER_TOOL_BOX_ID) {
+                return skill;
+              }
+
+              return {
+                ...skill,
+                tool_input: updateContextLoaderKnIdInput(skill.tool_input || [], false),
+              };
+            })
+          );
+        }
+      }
+
+      prevKnowledgeNetworkIdsRef.current = currentKnowledgeNetworkIds;
+    };
+
+    syncContextLoader().catch(error => {
+      console.error('sync contextloader tools failed:', error);
+    });
+  }, [
+    readonly,
+    state?.config?.data_source?.knowledge_network,
+    publicAndCurrentDomainIds,
+    skills,
+    buildContextLoaderTools,
+    syncSkillsState,
+  ]);
+
   // 技能表格列定义
   const skillColumns = [
     {
@@ -733,7 +906,8 @@ const SkillsSection = (props: SkillsSectionProps) => {
         }, []),
     };
 
-    actions.updateSkills(newSkills);
+    void newSkills;
+    syncSkillsState(updatedSkills);
   };
 
   // 处理工具选择完成
@@ -793,7 +967,8 @@ const SkillsSection = (props: SkillsSectionProps) => {
         }, []),
     };
 
-    actions.updateSkills(newSkills);
+    void newSkills;
+    syncSkillsState(updatedSkills);
   };
 
   // 处理工具输入完成
@@ -814,7 +989,7 @@ const SkillsSection = (props: SkillsSectionProps) => {
           tool_input: skill.tool_input,
           intervention: skill.intervention || false,
           intervention_confirmation_message: skill.intervention ? skill.intervention_confirmation_message : null,
-          tool_timeout: skill.tool_timeout || 300,
+          tool_timeout: (skill as any).tool_timeout || 300,
           details: skill.details || skill,
           result_process_strategies: skill.result_process_strategies,
         })),
@@ -851,7 +1026,8 @@ const SkillsSection = (props: SkillsSectionProps) => {
         }, []),
     };
 
-    actions.updateSkills(newSkills);
+    void newSkills;
+    syncSkillsState(updatedSkills);
     setToolInputParamModal({
       open: false,
       tool: null as any,
@@ -993,6 +1169,7 @@ const SkillsSection = (props: SkillsSectionProps) => {
             onCancel={() => setToolModalVisible(false)}
             onConfirm={handleToolSelectComplete}
             allPreviousBlockVars={allPreviousBlockVars}
+            hasKnowledgeNetwork={hasKnowledgeNetwork}
             retrieverBlockOptions={[]}
             value={skills}
           />

@@ -1,7 +1,12 @@
 import intl from 'react-intl-universal';
+import { uniqBy } from 'lodash';
 
 export const defaultParamType = 'unknown'; // 默认参数类型
 export const hiddenBuildInFields = ['history', 'tool', 'header', 'self_config']; // 需要隐藏的内置输入变量
+export const CONTEXT_LOADER_TOOL_BOX_ID = 'e521d454-4a0b-4dc9-8a28-d0986de1cef9';
+export const CONTEXT_LOADER_KN_ID_VAR = 'self_config.data_source.knowledge_network[0].knowledge_network_id';
+export const CONTEXT_LOADER_ACCOUNT_ID_VAR = 'header.x-account-id';
+export const CONTEXT_LOADER_ACCOUNT_TYPE_VAR = 'header.x-account-type';
 
 // 转换agentInput
 export const transformAgentInput = ({ name, type, desc }: { name: string; type: string; desc: string }) => {
@@ -185,3 +190,126 @@ export function getMCPInputParamsFromOpenAPISpec(rootSchema: any) {
   }
   return arr;
 }
+
+export const buildDefaultToolInputConfig = (toolInput: any[] = []): any[] => {
+  return toolInput.map(item => {
+    if (item.children?.length) {
+      return {
+        ...item,
+        children: buildDefaultToolInputConfig(item.children),
+      };
+    }
+
+    return {
+      ...item,
+      map_type: 'auto',
+      map_value: undefined,
+      enable: item.required ?? false,
+    };
+  });
+};
+
+export const mergeToolInputConfig = (toolInput: any[] = [], existingToolInput: any[] = []): any[] => {
+  return toolInput.map(item => {
+    const existingItem = existingToolInput.find(current => current.input_name === item.input_name);
+
+    if (item.children?.length) {
+      return {
+        ...item,
+        children: mergeToolInputConfig(item.children, existingItem?.children || []),
+      };
+    }
+
+    return {
+      ...item,
+      enable: existingItem?.enable ?? item.enable,
+      map_type: existingItem?.map_type ?? item.map_type,
+      map_value: existingItem?.map_value ?? item.map_value,
+      input_desc: existingItem?.input_desc ?? item.input_desc,
+    };
+  });
+};
+
+export const mergeToolInputWithHeaders = (toolInput: any[] = [], globalHeaders: Record<string, any> = {}) => {
+  const headers = Object.keys(globalHeaders).map(headerItem => ({
+    input_name: headerItem,
+    input_type: 'string',
+  }));
+
+  return uniqBy([...toolInput, ...headers], 'input_name');
+};
+
+export const applyContextLoaderToolInputConfig = (toolInput: any[] = [], hasKnowledgeNetwork: boolean): any[] => {
+  return toolInput.map(item => {
+    if (item.children?.length) {
+      return {
+        ...item,
+        children: applyContextLoaderToolInputConfig(item.children, hasKnowledgeNetwork),
+      };
+    }
+
+    if (item.input_name === 'x-account-id') {
+      return {
+        ...item,
+        enable: true,
+        map_type: 'var',
+        map_value: CONTEXT_LOADER_ACCOUNT_ID_VAR,
+      };
+    }
+
+    if (item.input_name === 'x-account-type') {
+      return {
+        ...item,
+        enable: true,
+        map_type: 'var',
+        map_value: CONTEXT_LOADER_ACCOUNT_TYPE_VAR,
+      };
+    }
+
+    if (item.input_name === 'kn_id') {
+      return {
+        ...item,
+        enable: true,
+        map_type: hasKnowledgeNetwork ? 'var' : 'auto',
+        map_value: hasKnowledgeNetwork ? CONTEXT_LOADER_KN_ID_VAR : undefined,
+      };
+    }
+
+    if (!item.required) {
+      if (item.enable) {
+        return item;
+      }
+
+      return {
+        ...item,
+        enable: true,
+        map_type: 'auto',
+        map_value: undefined,
+      };
+    }
+
+    return item;
+  });
+};
+
+export const updateContextLoaderKnIdInput = (toolInput: any[] = [], hasKnowledgeNetwork: boolean): any[] => {
+  return toolInput.map(item => {
+    if (item.children?.length) {
+      return {
+        ...item,
+        children: updateContextLoaderKnIdInput(item.children, hasKnowledgeNetwork),
+      };
+    }
+
+    if (item.input_name !== 'kn_id') {
+      return item;
+    }
+
+    return {
+      ...item,
+      enable: true,
+      map_type: hasKnowledgeNetwork ? 'var' : 'auto',
+      map_value: hasKnowledgeNetwork ? CONTEXT_LOADER_KN_ID_VAR : undefined,
+    };
+  });
+};

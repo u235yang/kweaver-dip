@@ -20,6 +20,37 @@ export const buildRegeneratePayload = (turn: DipChatKitMessageTurn): AiPromptSub
   }
 }
 
+export const shouldPreserveLiveConversationOnSessionAttach = (
+  sessionId: string,
+  messageTurns: DipChatKitMessageTurn[],
+): boolean => {
+  const normalizedSessionId = sessionId.trim()
+  if (!normalizedSessionId || messageTurns.length === 0) {
+    return false
+  }
+
+  const hasLiveConversationContent = messageTurns.some((turn) => {
+    return (
+      turn.pendingSend === true ||
+      turn.answerLoading === true ||
+      turn.answerStreaming === true ||
+      turn.question.trim().length > 0 ||
+      turn.questionAttachments.length > 0 ||
+      turn.answerMarkdown.trim().length > 0 ||
+      turn.answerEvents.length > 0
+    )
+  })
+
+  if (!hasLiveConversationContent) {
+    return false
+  }
+
+  return messageTurns.every((turn) => {
+    const turnSessionKey = turn.sessionKey?.trim() || ''
+    return !turnSessionKey || turnSessionKey === normalizedSessionId
+  })
+}
+
 const normalizeSessionMessageRole = (role: unknown): string => {
   if (typeof role !== 'string') return ''
   return role.trim().toLowerCase()

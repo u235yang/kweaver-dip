@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapSessionMessagesToTurns } from '../utils'
+import { mapSessionMessagesToTurns, shouldPreserveLiveConversationOnSessionAttach } from '../utils'
 
 describe('ChatContentArea/utils mapSessionMessagesToTurns', () => {
   it('restores archive tool result text from historical function_call_output messages', () => {
@@ -107,5 +107,49 @@ describe('ChatContentArea/utils mapSessionMessagesToTurns', () => {
       toolCallId: 'call_n7velwfpfgike3six9awyddb',
       resultText: expect.stringContaining('"type": "archive_grid"'),
     })
+  })
+})
+
+describe('ChatContentArea/utils shouldPreserveLiveConversationOnSessionAttach', () => {
+  it('preserves the in-flight first turn when the same session key is attached to the URL', () => {
+    expect(
+      shouldPreserveLiveConversationOnSessionAttach('session-1', [
+        {
+          id: 'turn-1',
+          sessionKey: 'session-1',
+          question: '@库存助手 帮我看下今日异常订单',
+          questionEmployees: [{ value: 'employee-1', label: '库存助手' }],
+          questionAttachments: [],
+          pendingSend: false,
+          answerMarkdown: '',
+          answerEvents: [],
+          answerTimeline: [],
+          answerLoading: true,
+          answerStreaming: true,
+          createdAt: '2026-05-15T00:00:00.000Z',
+        },
+      ]),
+    ).toBe(true)
+  })
+
+  it('does not preserve when attaching a different session onto existing turns', () => {
+    expect(
+      shouldPreserveLiveConversationOnSessionAttach('session-2', [
+        {
+          id: 'turn-1',
+          sessionKey: 'session-1',
+          question: '继续刚才的话题',
+          questionEmployees: [{ value: 'employee-1', label: '库存助手' }],
+          questionAttachments: [],
+          pendingSend: false,
+          answerMarkdown: '好的',
+          answerEvents: [],
+          answerTimeline: [],
+          answerLoading: false,
+          answerStreaming: false,
+          createdAt: '2026-05-15T00:00:00.000Z',
+        },
+      ]),
+    ).toBe(false)
   })
 })

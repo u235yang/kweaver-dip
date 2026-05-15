@@ -20,7 +20,11 @@ import type { AiPromptSubmitPayload } from '../AiPromptInput/types'
 import { replaceChannelMentionsWithLabels } from '../ChannelMention/utils'
 import styles from './index.module.less'
 import type { ChatContentAreaProps } from './types'
-import { buildRegeneratePayload, mapSessionMessagesToTurns } from './utils'
+import {
+  buildRegeneratePayload,
+  mapSessionMessagesToTurns,
+  shouldPreserveLiveConversationOnSessionAttach,
+} from './utils'
 import VirtualConversationList from './VirtualConversationList'
 import type { VirtualConversationListRef } from './VirtualConversationList/types'
 
@@ -436,6 +440,13 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
     }
 
     const trimmedSessionId = sessionId.trim()
+    if (
+      trimmedSessionId &&
+      shouldPreserveLiveConversationOnSessionAttach(trimmedSessionId, messageTurnsRef.current)
+    ) {
+      return
+    }
+
     abortAllStreaming()
     clearScheduledScroll()
     setInputValue('')
